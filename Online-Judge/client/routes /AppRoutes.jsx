@@ -1,14 +1,16 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginPage from "../components/LoginPage";
-import RegisterPage from "../components/RegisterPage"; // ⬅️ Import this
+import RegisterPage from "../components/RegisterPage";
+import Home from "../components/Home";
 
 function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} /> {/* ⬅️ Add this */}
+        <Route path="/register" element={<RegisterPage />} /> 
+        <Route path="/home" element={<Home />} />
       </Routes>
     </BrowserRouter>
   );

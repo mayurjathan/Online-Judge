@@ -1,20 +1,36 @@
 import React, { useState } from "react";
 import "./styles/Login.css";
+import axios from "axios";
 
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    console.log("Email:", email);
-    console.log("Password:", password);
+
+    try {
+      const res = await axios.post("http://localhost:5050/api/auth/login", {
+        email,
+        password,
+      });
+
+      localStorage.setItem("token", res.data.token);
+      window.location.href = "/home";
+    } catch (err) {
+      console.error("Login failed:", err.response?.data || err.message);
+      setError(err.response?.data?.error || "Login failed. Please try again.");
+    }
   };
 
   return (
     <div className="login-container">
       <form className="login-form" onSubmit={handleLogin}>
         <h2>Login to Online Judge</h2>
+
+        {error && <p className="error-msg">{error}</p>}
+
         <label>Email:</label>
         <input
           type="email"
@@ -23,6 +39,7 @@ function LoginPage() {
           placeholder="Enter your email"
           required
         />
+
         <label>Password:</label>
         <input
           type="password"
@@ -31,7 +48,9 @@ function LoginPage() {
           placeholder="Enter your password"
           required
         />
+
         <button type="submit">Login</button>
+
         <div className="link-text">
           Don’t have an account? <a href="/register">Register here</a>
         </div>
