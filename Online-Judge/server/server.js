@@ -7,22 +7,16 @@ require("dotenv").config();
 const app = express();
 app.use(express.json());
 
-// CORS setup for Vite dev server
-app.use(cors({
-  origin: "http://localhost:5174",
-  credentials: true,
-}));
-
-// Import routes
-const authRoutes = require("./routes/auth");
-const protectedRoutes = require("./middleware/protected"); 
-
-// Register routes
-app.use("/api/auth", authRoutes);
-app.use("/api", protectedRoutes); 
+// CORS setup
+app.use(
+  cors({
+    origin: "http://localhost:5174",
+    credentials: true,
+  })
+);
 
 // MongoDB connect
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5050;
 
 async function startServer() {
   try {
@@ -30,8 +24,17 @@ async function startServer() {
     console.log("MongoDB connected");
     console.log("Connected to DB:", mongoose.connection.name);
 
-    app.use(express.static(path.join(__dirname, "../client/dist")));
+    // Routes
+    const authRoutes = require("./routes/auth");
+    const protectedRoutes = require("./middleware/protected");
+    const problemRoutes = require("./routes/problem");
 
+    app.use("/api/auth", authRoutes);
+    app.use("/api", protectedRoutes);
+    app.use("/api/problems", problemRoutes);
+
+    // Serve frontend
+    app.use(express.static(path.join(__dirname, "../client/dist")));
     app.get("*", (req, res) => {
       res.sendFile(path.join(__dirname, "../client/dist/index.html"));
     });

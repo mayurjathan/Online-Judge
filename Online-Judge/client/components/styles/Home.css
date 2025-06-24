@@ -1,34 +1,97 @@
-.home-container {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+
+
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: #e6efff;
   }
-  .header {
-    background-color:#4a90e2;
-    color: white;
-    padding: 1rem;
+  
+  .home-page {
+    padding: 20px;
+  }
+  .home-header {
     display: flex;
     justify-content: space-between;
-  }
-  .header nav a {
-    margin: 0 10px;
+    align-items: center;
+    background-color: #4a90e2;
     color: white;
-    text-decoration: none;
+    padding: 16px 24px;
   }
-  .main-content {
-    flex: 1;
-    padding: 2rem;
+  
+  
+  
+  .profile-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
   }
+  
+  .site-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+  }
+  
+  .problem-section h2 {
+    margin-bottom: 10px;
+  }
+  
+  .problem-list-box {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 100%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+  
   .problem-list {
     list-style: none;
     padding: 0;
+    margin: 0;
   }
+  
   .problem-item {
-    margin: 0.5rem 0;
+    padding: 15px 0;
+    border-bottom: 1px solid #ddd;
   }
-  .footer {
-    background-color: #eee;
-    padding: 1rem;
+  
+  .problem-item h3 {
+    margin: 0 0 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .tag {
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 0.75rem;
+    color: white;
+    margin-left: 10px;
+  }
+  
+  .tag.easy {
+    background-color: #28a745;
+  }
+  
+  .tag.medium {
+    background-color: #ffc107;
+  }
+  
+  .tag.hard {
+    background-color: #dc3545;
+  }
+  
+  .home-footer {
+    background-color: #4a90e2;
+    color: white;
     text-align: center;
+    padding: 12px;
+    font-size: 0.9rem;
+    position: relative;
+    bottom: 0;
+    width: 100%;
+    margin-top: 40px;
   }
+  
   
