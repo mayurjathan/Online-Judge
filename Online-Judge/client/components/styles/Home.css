@@ -94,4 +94,14 @@ body {
     margin-top: 40px;
   }
   
-  
+  .problem-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.problem-link:hover {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 5px;
+}
