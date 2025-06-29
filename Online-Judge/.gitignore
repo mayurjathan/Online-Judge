@@ -1,6 +1,7 @@
 # Ignore node_modules in both client and server
 client/node_modules/
 server/node_modules/
+compiler/node_modules/
 
 # Ignore .env files
 .env
@@ -11,3 +12,6 @@ server/node_modules/
 # IDE settings
 .vscode/
 .DS_Store
+
+compiler/utils/codes
+compiler/utils/outputs

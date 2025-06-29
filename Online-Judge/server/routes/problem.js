@@ -13,7 +13,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ✅ GET single problem by ID
+// GET single problem by ID
 router.get("/:id", async (req, res) => {
   try {
     const problem = await Problem.findById(req.params.id);

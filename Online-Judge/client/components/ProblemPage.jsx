@@ -9,20 +9,33 @@ using namespace std;
 
 int main() {
     // Write your code here
+    cout << "Hello, World!" << endl;
     return 0;
 }`,
+
+  c: `#include <stdio.h>
+
+int main() {
+    // Write your code here
+    printf("Hello, World!\\n");
+    return 0;
+}`,
+
   python: `# Write your Python code here
 def main():
-    pass
+    print("Hello, World!")
 
 if __name__ == "__main__":
     main()`,
+
   java: `public class Main {
     public static void main(String[] args) {
         // Write your code here
+        System.out.println("Hello, World!");
     }
 }`
 };
+
 
 const ProblemPage = () => {
   const { id } = useParams();
@@ -43,12 +56,12 @@ const ProblemPage = () => {
     try {
       const input =
         customInput || problem.testCases?.[activeTestIndex]?.input || "";
-      const res = await axios.post("http://localhost:8000/run", {
+      const res = await axios.post("http://localhost:5100/api/compiler/run", {
         language,
         code,
         input,
       });
-      setOutput(res.data.output || res.data.stderr);
+      setOutput(res.data.output || res.data.stderr || "No output");
     } catch (err) {
       setOutput("Execution failed.");
     }
@@ -59,7 +72,7 @@ const ProblemPage = () => {
     const results = [];
 
     for (const test of problem.testCases) {
-      const res = await axios.post("http://localhost:8000/run", {
+      const res = await axios.post("http://localhost:5100/api/compiler/run", {
         language,
         code,
         input: test.input,
@@ -141,6 +154,7 @@ const ProblemPage = () => {
             }}
           >
             <option value="cpp">C++</option>
+            <option value="c">C</option>
             <option value="python">Python</option>
             <option value="java">Java</option>
           </select>
