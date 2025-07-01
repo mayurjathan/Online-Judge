@@ -36,7 +36,6 @@ if __name__ == "__main__":
 }`
 };
 
-
 const ProblemPage = () => {
   const { id } = useParams();
   const [problem, setProblem] = useState(null);
@@ -47,58 +46,66 @@ const ProblemPage = () => {
   const [customInput, setCustomInput] = useState("");
 
   useEffect(() => {
-    axios.get(`http://localhost:5050/api/problems/${id}`).then((res) => {
-      setProblem(res.data);
-    });
+    const fetchProblem = async () => {
+      try {
+        const res = await axios.get(`http://localhost:5050/api/problems/${id}?withHidden=true`);
+        setProblem(res.data);
+      } catch (err) {
+        console.error("Failed to load problem:", err);
+      }
+    };
+
+    fetchProblem();
   }, [id]);
 
   const handleRun = async () => {
     try {
       const input =
-        customInput || problem.testCases?.[activeTestIndex]?.input || "";
-      const res = await axios.post("http://localhost:5100/api/compiler/run", {
+        customInput || problem.visibleTestCases?.[activeTestIndex]?.input || "";
+      const res = await axios.post("http://localhost:5100/api/compiler", {
         language,
         code,
         input,
       });
       setOutput(res.data.output || res.data.stderr || "No output");
     } catch (err) {
+      console.error("Run failed:", err);
       setOutput("Execution failed.");
     }
   };
+const handleSubmit = async () => {
+  if (!problem || !Array.isArray(problem.hiddenTestCases) || problem.hiddenTestCases.length === 0) {
+    alert("No hidden test cases found for this problem.");
+    return;
+  }
 
-  const handleSubmit = async () => {
-    if (!problem?.testCases?.length) return;
-    const results = [];
+  try {
+    const res = await axios.post("http://localhost:5100/api/compiler/submit", {
+      code,
+      language,
+      testCases: problem.hiddenTestCases,
+    });
 
-    for (const test of problem.testCases) {
-      const res = await axios.post("http://localhost:5100/api/compiler/run", {
-        language,
-        code,
-        input: test.input,
-      });
+    if (res.data?.results && res.data.results.length > 0) {
+      const summary = res.data.results
+        .map(
+          (r, i) =>
+            `Test ${i + 1}: ${r.passed ? "Passed" : "Failed"}\nInput: ${
+              r.input
+            }\nExpected: ${r.expectedOutput}\nGot: ${r.actualOutput}`
+        )
+        .join("\n\n");
 
-      const actual = res.data.output?.trim() || "";
-      const expected = test.output.trim();
-      results.push({
-        input: test.input,
-        expected,
-        actual,
-        passed: actual === expected,
-      });
+      setOutput(summary);
+    } else {
+      setOutput("No results returned from submission.");
     }
+  } catch (err) {
+    console.error("Submit failed:", err);
+    setOutput("Submission failed.");
+  }
+};
 
-    const summary = results
-      .map(
-        (r, i) =>
-          `Test ${i + 1}: ${r.passed ? "Passed" : "Failed"}\nInput: ${
-            r.input
-          }\nExpected: ${r.expected}\nGot: ${r.actual}`
-      )
-      .join("\n\n");
-
-    setOutput(summary);
-  };
 
   if (!problem) return <p className="loading">Loading Problem...</p>;
 
@@ -124,7 +131,11 @@ const ProblemPage = () => {
                   <br />
                   <strong>Output:</strong> {ex.output}
                   <br />
-                  <strong>Explanation:</strong> {ex.explanation}
+                  {ex.explanation && (
+                    <>
+                      <strong>Explanation:</strong> {ex.explanation}
+                    </>
+                  )}
                 </li>
               ))}
             </ul>
@@ -149,8 +160,9 @@ const ProblemPage = () => {
           <select
             value={language}
             onChange={(e) => {
-              setLanguage(e.target.value);
-              setCode(languageTemplates[e.target.value]);
+              const lang = e.target.value;
+              setLanguage(lang);
+              setCode(languageTemplates[lang]);
             }}
           >
             <option value="cpp">C++</option>
@@ -161,7 +173,7 @@ const ProblemPage = () => {
         </div>
 
         <div className="test-tabs">
-          {problem.testCases?.map((_, idx) => (
+          {problem.visibleTestCases?.slice(0, 3).map((_, idx) => (
             <button
               key={idx}
               className={activeTestIndex === idx ? "active-tab" : ""}
@@ -174,10 +186,10 @@ const ProblemPage = () => {
 
         <div className="example-box">
           <strong>Input:</strong>{" "}
-          {problem.testCases?.[activeTestIndex]?.input || "N/A"}
+          {problem.visibleTestCases?.[activeTestIndex]?.input || "N/A"}
           <br />
           <strong>Expected:</strong>{" "}
-          {problem.testCases?.[activeTestIndex]?.output || "N/A"}
+          {problem.visibleTestCases?.[activeTestIndex]?.output || "N/A"}
         </div>
 
         <textarea

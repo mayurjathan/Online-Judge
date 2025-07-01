@@ -16,13 +16,22 @@ router.get("/", async (req, res) => {
 // GET single problem by ID
 router.get("/:id", async (req, res) => {
   try {
-    const problem = await Problem.findById(req.params.id);
+    const includeHidden = req.query.withHidden === "true";
+    const problem = await Problem.findById(req.params.id).lean();
     if (!problem) {
       return res.status(404).json({ error: "Problem not found" });
     }
-    res.json(problem);
+
+    if (!includeHidden) {
+      const { hiddenTestCases, ...rest } = problem;
+      return res.json(rest);
+    }
+
+    // Return full problem if withHidden=true
+    return res.json(problem);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch the problem" });
+    console.error("Error fetching problem:", err);
+    res.status(500).json({ error: "Failed to fetch problem" });
   }
 });
 

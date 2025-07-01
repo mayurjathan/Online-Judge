@@ -12,6 +12,18 @@ const problemSchema = new mongoose.Schema({
     },
   ],
   constraints: [String],
-});
+  visibleTestCases: [
+    {
+      input: String,
+      output: String,
+    },
+  ],
+  hiddenTestCases: [
+    {
+      input: String,
+      output: String,
+    },
+  ],
+}, { collection: "problems" }); 
 
 module.exports = mongoose.model("Problem", problemSchema);

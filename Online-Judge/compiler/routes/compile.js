@@ -1,45 +1,41 @@
 const express = require("express");
 const router = express.Router();
 const generateFile = require("../utils/generateFile");
+const generateInputFile = require("../utils/generateInputFile");
 const executeCpp = require("../execution/executeCpp");
 const executeC = require("../execution/executeC");
 const executePython = require("../execution/executePython");
 const executeJava = require("../execution/executeJava");
 
-router.post("/run", async (req, res) => {
-  console.log("Run request received");
-  const { language = "cpp", code } = req.body;
-
-  if (!code) return res.status(400).json({ error: "Empty code!" });
+router.post("/", async (req, res) => {
+  const { language, code, input = "" } = req.body;
 
   try {
     const filepath = await generateFile(language, code);
-    console.log("Code file generated at:", filepath); 
+    const inputPath = await generateInputFile(input);
 
     let output;
     switch (language) {
       case "cpp":
-        output = await executeCpp(filepath);
+        output = await executeCpp(filepath, inputPath);
         break;
       case "c":
-        output = await executeC(filepath);
+        output = await executeC(filepath, inputPath);
         break;
       case "python":
-        output = await executePython(filepath);
+        output = await executePython(filepath, inputPath);
         break;
       case "java":
-        output = await executeJava(filepath);
+        output = await executeJava(filepath, inputPath);
         break;
       default:
         return res.status(400).json({ error: "Unsupported language" });
     }
 
-    res.json({ output });
+    return res.json({ output });
   } catch (err) {
-    console.error("Error during execution:", err);
-    res.status(500).json({ error: err.message || err });
+    return res.status(500).json({ stderr: err.message });
   }
 });
-
 
 module.exports = router;

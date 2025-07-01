@@ -1,15 +1,16 @@
+// compiler/execution/executeC.js
 const { exec } = require("child_process");
 const path = require("path");
-const fs = require("fs");
-const { outputDir } = require("../utils/paths");
 
-const executeC = (filepath) => {
+const executeC = (filepath, inputPath) => {
+  const jobId = path.basename(filepath).split(".")[0];
+  const outPath = path.join(__dirname, `../utils/outputs/${jobId}.out`);
+
   return new Promise((resolve, reject) => {
-    const jobId = path.basename(filepath).split(".")[0];
-    const outputFile = path.join(outputDir, `${jobId}.out`);
-
-    exec(`gcc ${filepath} -o ${outputFile} && ${outputFile}`, (error, stdout, stderr) => {
-      if (error) return reject(stderr || error.message);
+    const command = `gcc ${filepath} -o ${outPath} && ${outPath} < ${inputPath || "/dev/null"}`;
+    exec(command, (error, stdout, stderr) => {
+      if (error) return reject({ error, stderr });
+      if (stderr) return reject({ stderr });
       resolve(stdout);
     });
   });

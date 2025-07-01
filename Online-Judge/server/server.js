@@ -1,3 +1,4 @@
+
 const express = require("express");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -5,10 +6,10 @@ const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
+const PORT = process.env.PORT || 5050;
 
 // Middleware
 app.use(express.json());
-
 app.use(cors());
 
 // Routes
@@ -16,13 +17,9 @@ const authRoutes = require("./routes/auth");
 const protectedRoutes = require("./middleware/protected");
 const problemRoutes = require("./routes/problem");
 
-// Mount routes
 app.use("/api/auth", authRoutes);
 app.use("/api", protectedRoutes);
 app.use("/api/problems", problemRoutes);
-
-// MongoDB connect
-const PORT = process.env.PORT || 5050;
 
 async function startServer() {
   try {
@@ -32,17 +29,18 @@ async function startServer() {
     });
     console.log("MongoDB connected:", mongoose.connection.name);
 
-    // Serve static frontend
+    // Serve frontend (React Vite or other static files)
     app.use(express.static(path.join(__dirname, "../client/dist")));
     app.get("*", (req, res) => {
       res.sendFile(path.join(__dirname, "../client/dist/index.html"));
     });
 
     app.listen(PORT, () => {
-      console.log(` Server running at http://localhost:${PORT}`);
+      console.log(`Server running at http://localhost:${PORT}`);
     });
   } catch (err) {
-    console.error(" MongoDB connection error:", err);
+    console.error("MongoDB connection error:", err);
+    process.exit(1);
   }
 }
 

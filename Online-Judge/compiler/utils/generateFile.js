@@ -2,11 +2,10 @@ const fs = require("fs");
 const path = require("path");
 const { v4: uuid } = require("uuid");
 
-const dirCodes = path.join(__dirname, "../utils/codes");
+const dirCodes = path.join(__dirname, "codes");
 
 if (!fs.existsSync(dirCodes)) {
   fs.mkdirSync(dirCodes, { recursive: true });
-  console.log("Created codes directory at:", dirCodes);
 }
 
 const generateFile = async (language, code) => {
@@ -16,17 +15,17 @@ const generateFile = async (language, code) => {
     python: "py",
     java: "java",
   };
+    const jobId = uuid();
+  const fileName = `${jobId}.${language}`;
+  const filePath = path.join(dirCodes, fileName);
+  let finalCode = code;
 
-  const jobID = uuid();
-  const filename = `${jobID}.${extMap[language]}`;
-  const filepath = path.join(dirCodes, filename);
-
-  try {
-    await fs.promises.writeFile(filepath, code);
-    return filepath;
-  } catch (err) {
-    throw err;
+  if (language === "java") {
+    finalCode = code.replace(/public\s+class\s+Main/, `public class ${jobId}`);
   }
+
+  await fs.promises.writeFile(filePath, code);
+  return filePath;
 };
 
 module.exports = generateFile;
