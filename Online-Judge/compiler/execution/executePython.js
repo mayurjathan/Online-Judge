@@ -1,15 +1,28 @@
-const { exec } = require("child_process");
+const { spawn } = require("child_process");
 const path = require("path");
+const { v4: uuid } = require("uuid");
+const fs = require("fs");
 
-const executePython = (filepath, inputPath) => {
+const outputPath = path.join(__dirname, "../utils/outputs");
+if (!fs.existsSync(outputPath)) fs.mkdirSync(outputPath, { recursive: true });
+
+const runPython = async (filepath, inputStr = "") => {
   return new Promise((resolve, reject) => {
-    const command = `python3 ${filepath} < ${inputPath || "/dev/null"}`;
-    exec(command, (error, stdout, stderr) => {
-      if (error) return reject({ error, stderr });
-      if (stderr) return reject({ stderr });
-      resolve(stdout);
+    const process = spawn("python3", [filepath]);
+
+    let output = "", error = "";
+
+    process.stdin.write(inputStr);
+    process.stdin.end();
+
+    process.stdout.on("data", data => output += data.toString());
+    process.stderr.on("data", data => error += data.toString());
+
+    process.on("close", code => {
+      if (code === 0) resolve(output);
+      else reject(error || `Exited with code ${code}`);
     });
   });
 };
 
-module.exports = executePython;
+module.exports = { runPython };

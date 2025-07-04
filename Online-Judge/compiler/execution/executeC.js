@@ -1,19 +1,34 @@
-// compiler/execution/executeC.js
-const { exec } = require("child_process");
+const { execSync, spawn } = require("child_process");
 const path = require("path");
+const { v4: uuid } = require("uuid");
+const fs = require("fs");
 
-const executeC = (filepath, inputPath) => {
-  const jobId = path.basename(filepath).split(".")[0];
-  const outPath = path.join(__dirname, `../utils/outputs/${jobId}.out`);
+const outputPath = path.join(__dirname, "../utils/outputs");
+if (!fs.existsSync(outputPath)) fs.mkdirSync(outputPath, { recursive: true });
 
+const compileC = (filepath) => {
+  const jobId = uuid();
+  const outPath = path.join(outputPath, `${jobId}.out`);
+  execSync(`gcc ${filepath} -o ${outPath}`, { timeout: 5000 });
+  return outPath;
+};
+
+const runC = (executablePath, inputStr = "") => {
   return new Promise((resolve, reject) => {
-    const command = `gcc ${filepath} -o ${outPath} && ${outPath} < ${inputPath || "/dev/null"}`;
-    exec(command, (error, stdout, stderr) => {
-      if (error) return reject({ error, stderr });
-      if (stderr) return reject({ stderr });
-      resolve(stdout);
+    const process = spawn(executablePath);
+    let output = "", error = "";
+
+    process.stdin.write(inputStr);
+    process.stdin.end();
+
+    process.stdout.on("data", data => output += data.toString());
+    process.stderr.on("data", data => error += data.toString());
+
+    process.on("close", code => {
+      if (code === 0) resolve(output);
+      else reject(error || `Exited with code ${code}`);
     });
   });
 };
 
-module.exports = executeC;
+module.exports = { compileC, runC };

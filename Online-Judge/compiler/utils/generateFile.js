@@ -3,29 +3,35 @@ const path = require("path");
 const { v4: uuid } = require("uuid");
 
 const dirCodes = path.join(__dirname, "codes");
-
 if (!fs.existsSync(dirCodes)) {
   fs.mkdirSync(dirCodes, { recursive: true });
 }
 
 const generateFile = async (language, code) => {
-  const extMap = {
-    cpp: "cpp",
-    c: "c",
-    python: "py",
-    java: "java",
-  };
-    const jobId = uuid();
-  const fileName = `${jobId}.${language}`;
-  const filePath = path.join(dirCodes, fileName);
-  let finalCode = code;
+  const jobId = uuid();
+  let filename;
 
-  if (language === "java") {
-    finalCode = code.replace(/public\s+class\s+Main/, `public class ${jobId}`);
+  switch (language) {
+    case "cpp":
+      filename = `${jobId}.cpp`;
+      break;
+    case "c":
+      filename = `${jobId}.c`;
+      break;
+    case "python":
+      filename = `${jobId}.py`;
+      break;
+    case "java":
+      filename = `${jobId}.java`; 
+      code = code.replace(/public\s+class/g, "class");
+      break;
+    default:
+      throw new Error("Unsupported language");
   }
 
-  await fs.promises.writeFile(filePath, code);
-  return filePath;
+  const filepath = path.join(dirCodes, filename);
+  await fs.promises.writeFile(filepath, code);
+  return filepath;
 };
 
 module.exports = generateFile;

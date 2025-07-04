@@ -2,6 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import "./styles/ProblemPage.css";
+import Editor from "@monaco-editor/react";
+
+const languageMap = {
+  cpp: "cpp",
+  c: "c",
+  java: "java",
+  python: "python",
+};
 
 const languageTemplates = {
   cpp: `#include <iostream>
@@ -33,7 +41,7 @@ if __name__ == "__main__":
         // Write your code here
         System.out.println("Hello, World!");
     }
-}`
+}`,
 };
 
 const ProblemPage = () => {
@@ -44,11 +52,13 @@ const ProblemPage = () => {
   const [output, setOutput] = useState("");
   const [activeTestIndex, setActiveTestIndex] = useState(0);
   const [customInput, setCustomInput] = useState("");
+  const [testResults, setTestResults] = useState([]);
+  const [review, setReview] = useState("");
 
   useEffect(() => {
     const fetchProblem = async () => {
       try {
-        const res = await axios.get(`http://localhost:5050/api/problems/${id}?withHidden=true`);
+        const res = await axios.get(`http://localhost:5050/api/problems/${id}`);
         setProblem(res.data);
       } catch (err) {
         console.error("Failed to load problem:", err);
@@ -62,7 +72,7 @@ const ProblemPage = () => {
     try {
       const input =
         customInput || problem.visibleTestCases?.[activeTestIndex]?.input || "";
-      const res = await axios.post("http://localhost:5100/api/compiler", {
+      const res = await axios.post("http://localhost:5100/api/compiler/run", {
         language,
         code,
         input,
@@ -73,39 +83,57 @@ const ProblemPage = () => {
       setOutput("Execution failed.");
     }
   };
-const handleSubmit = async () => {
-  if (!problem || !Array.isArray(problem.hiddenTestCases) || problem.hiddenTestCases.length === 0) {
-    alert("No hidden test cases found for this problem.");
-    return;
-  }
 
-  try {
-    const res = await axios.post("http://localhost:5100/api/compiler/submit", {
-      code,
-      language,
-      testCases: problem.hiddenTestCases,
-    });
+  const handleSubmit = async () => {
+    try {
+      const hiddenRes = await axios.get(
+        `http://localhost:5050/api/problems/${id}?withHidden=true`
+      );
 
-    if (res.data?.results && res.data.results.length > 0) {
-      const summary = res.data.results
-        .map(
-          (r, i) =>
-            `Test ${i + 1}: ${r.passed ? "Passed" : "Failed"}\nInput: ${
-              r.input
-            }\nExpected: ${r.expectedOutput}\nGot: ${r.actualOutput}`
-        )
-        .join("\n\n");
+      const hiddenTestCases = hiddenRes.data.hiddenTestCases;
 
-      setOutput(summary);
-    } else {
-      setOutput("No results returned from submission.");
+      if (!Array.isArray(hiddenTestCases) || hiddenTestCases.length === 0) {
+        alert("No hidden test cases found for this problem.");
+        return;
+      }
+
+      const res = await axios.post("http://localhost:5100/api/compiler/submit", {
+        code,
+        language,
+        testCases: hiddenTestCases,
+      });
+
+      if (res.data?.results?.length > 0) {
+        setTestResults(res.data.results);
+        setOutput("");
+      } else {
+        setOutput("No results returned from submission.");
+      }
+    } catch (err) {
+      console.error("Submit failed:", err);
+      setOutput("Submission failed.");
     }
-  } catch (err) {
-    console.error("Submit failed:", err);
-    setOutput("Submission failed.");
-  }
-};
+  };
 
+  const handleReviewCode = async () => {
+    try {
+      const res = await fetch("http://localhost:5100/api/compiler/ai-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setReview(data.review);
+      } else {
+        setReview("Error: " + data.error);
+      }
+    } catch (err) {
+      console.error("AI review failed:", err);
+      setReview("AI review failed: " + err.message);
+    }
+  };
 
   if (!problem) return <p className="loading">Loading Problem...</p>;
 
@@ -192,10 +220,17 @@ const handleSubmit = async () => {
           {problem.visibleTestCases?.[activeTestIndex]?.output || "N/A"}
         </div>
 
-        <textarea
-          className="code-area"
+        <Editor
+          height="400px"
+          language={languageMap[language]}
           value={code}
-          onChange={(e) => setCode(e.target.value)}
+          onChange={(value) => setCode(value)}
+          theme="vs-light"
+          options={{
+            fontSize: 14,
+            minimap: { enabled: false },
+            automaticLayout: true,
+          }}
         />
 
         <textarea
@@ -208,10 +243,38 @@ const handleSubmit = async () => {
         <div className="button-group">
           <button onClick={handleRun}>Run Code</button>
           <button onClick={handleSubmit}>Submit</button>
+          <button onClick={handleReviewCode}>Review Code</button>
         </div>
 
         <h4>Output:</h4>
         <pre>{output}</pre>
+
+        {testResults.length > 0 && (
+          <>
+            <h4>Test Cases:</h4>
+            <div className="test-case-grid">
+              {testResults.map((result, idx) => (
+                <button
+                  key={idx}
+                  className={`test-case-button ${result.passed ? "passed" : "failed"}`}
+                >
+                  Test Case {idx + 1}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {review && (
+  <div className="card mt-4">
+    <div className="card-body">
+      <h3 className="card-title fw-bold">AI Code Review:</h3>
+      <pre className="card-text" style={{ whiteSpace: 'pre-wrap' }}>
+        {review}
+      </pre>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );
