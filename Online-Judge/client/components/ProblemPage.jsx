@@ -87,20 +87,16 @@ const ProblemPage = () => {
   const handleSubmit = async () => {
     try {
       const hiddenRes = await axios.get(
-        `http://localhost:5050/api/problems/${id}?withHidden=true`
+        `http://localhost:5050/api/problems/${id}`
       );
 
       const hiddenTestCases = hiddenRes.data.hiddenTestCases;
-
-      if (!Array.isArray(hiddenTestCases) || hiddenTestCases.length === 0) {
-        alert("No hidden test cases found for this problem.");
-        return;
-      }
+      
 
       const res = await axios.post("http://localhost:5100/api/compiler/submit", {
         code,
         language,
-        testCases: hiddenTestCases,
+        problemId: id,
       });
 
       if (res.data?.results?.length > 0) {

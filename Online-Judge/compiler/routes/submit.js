@@ -2,59 +2,47 @@ const express = require("express");
 const router = express.Router();
 
 const generateFile = require("../utils/generateFile");
-
 const { compileCpp, runCpp } = require("../execution/executeCpp");
 const { compileC, runC } = require("../execution/executeC");
 const { runPython } = require("../execution/executePython");
 const { runJavaDirect } = require("../execution/executeJava");
 
-
-const path = require("path");
+const Problem = require("../services/Problem"); 
 
 router.post("/submit", async (req, res) => {
-  const { code, language = "cpp", testCases = [] } = req.body;
+  const { code, language = "cpp", problemId } = req.body;
 
-  if (!code || !Array.isArray(testCases) || testCases.length === 0) {
-    return res.status(400).json({ error: "Missing code or test cases" });
+  if (!code || !problemId) {
+    return res.status(400).json({ error: "Missing code or problem ID" });
   }
 
   try {
+    // 1. Fetch hidden test cases from DB
+    const problem = await Problem.findById(problemId).lean();
+
+    if (!problem || !problem.hiddenTestCases || problem.hiddenTestCases.length === 0) {
+      return res.status(404).json({ error: "Problem or test cases not found" });
+    }
+
+    const testCases = problem.hiddenTestCases;
     const filepath = await generateFile(language, code);
     const results = [];
     let passedAll = true;
 
-    // Compile once
-    let executablePath = "", className = "", dir = "";
+    let executablePath = "";
 
-    switch (language) {
-      case "cpp":
-        executablePath = compileCpp(filepath);
-        break;
-      case "c":
-        executablePath = compileC(filepath);
-        break;
-    }
+    if (language === "cpp") executablePath = compileCpp(filepath);
+    else if (language === "c") executablePath = compileC(filepath);
 
     for (const test of testCases) {
       try {
         let output = "";
 
-        switch (language) {
-          case "cpp":
-            output = await runCpp(executablePath, test.input);
-            break;
-          case "c":
-            output = await runC(executablePath, test.input);
-            break;
-          case "python":
-            output = await runPython(filepath, test.input);
-            break;
-          case "java":
-            output = await runJavaDirect(filepath, test.input);
-            break;
-          default:
-            throw new Error("Unsupported language");
-        }
+        if (language === "cpp") output = await runCpp(executablePath, test.input);
+        else if (language === "c") output = await runC(executablePath, test.input);
+        else if (language === "python") output = await runPython(filepath, test.input);
+        else if (language === "java") output = await runJavaDirect(filepath, test.input);
+        else throw new Error("Unsupported language");
 
         const actual = output.trim();
         const expected = test.output.trim();
@@ -64,8 +52,6 @@ router.post("/submit", async (req, res) => {
 
         results.push({
           input: test.input,
-          expectedOutput: expected,
-          actualOutput: actual,
           passed,
         });
       } catch (err) {
@@ -73,7 +59,7 @@ router.post("/submit", async (req, res) => {
         results.push({
           input: test.input,
           expectedOutput: test.output.trim(),
-          actualOutput: err,
+          actualOutput: err.message || "Error occurred",
           passed: false,
         });
       }
