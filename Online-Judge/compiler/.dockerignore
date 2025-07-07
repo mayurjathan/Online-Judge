@@ -1,0 +1,15 @@
+node_modules/
+
+# Ignore .env files
+.env
+
+# Logs
+*.log
+
+# IDE settings
+.vscode/
+.DS_Store
+
+utils/codes
+utils/outputs
+utils/inputs   
