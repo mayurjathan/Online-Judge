@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import "./styles/login.css";
+
 import axios from "axios";
 
 function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -21,6 +23,8 @@ function RegisterPage() {
       alert(err.response?.data?.error || "Registration failed");
     }
   };
+  
+
 
   return (
     <div className="auth-container">
@@ -28,13 +32,31 @@ function RegisterPage() {
         <h2>Register for Online Judge</h2>
 
         <label>Name:</label>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} required />
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter your name"
+          required
+        />
 
         <label>Email:</label>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter your email"
+          required
+        />
 
         <label>Password:</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Enter your password"
+          required
+        />
 
         <button type="submit">Register</button>
 
