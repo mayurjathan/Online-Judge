@@ -11,10 +11,10 @@ function LoginPage() {
     e.preventDefault();
 
     try {
-      const res = await axios.post("http://localhost:5050/api/auth/login", {
-        email,
-        password,
-      });
+      const res = await axios.post(
+        `${import.meta.env.VITE_SERVER_BASE_URL}/api/auth/login`,
+        { email, password }
+      );
 
       localStorage.setItem("token", res.data.token);
       window.location.href = "/home";
@@ -32,22 +32,10 @@ function LoginPage() {
         {error && <p className="error-msg">{error}</p>}
 
         <label>Email:</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Enter your email"
-          required
-        />
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
 
         <label>Password:</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter your password"
-          required
-        />
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
 
         <button type="submit">Login</button>
 

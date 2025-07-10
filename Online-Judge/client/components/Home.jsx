@@ -6,17 +6,11 @@ import "./styles/Home.css";
 function Home() {
   const [problems, setProblems] = useState([]);
 
-  const fetchProblems = async () => {
-    try {
-      const res = await axios.get("http://localhost:5050/api/problems");
-      setProblems(res.data);
-    } catch (err) {
-      console.error("Failed to fetch problems:", err);
-    }
-  };
-
   useEffect(() => {
-    fetchProblems();
+    axios
+      .get(`${import.meta.env.VITE_SERVER_BASE_URL}/api/problems`)
+      .then((res) => setProblems(res.data))
+      .catch((err) => console.error("Failed to fetch problems:", err));
   }, []);
 
   return (

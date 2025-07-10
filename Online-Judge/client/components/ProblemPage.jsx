@@ -58,7 +58,9 @@ const ProblemPage = () => {
   useEffect(() => {
     const fetchProblem = async () => {
       try {
-        const res = await axios.get(`http://localhost:5050/api/problems/${id}`);
+        const res = await axios.get(
+          `${import.meta.env.VITE_SERVER_BASE_URL}/api/problems/${id}`
+        );
         setProblem(res.data);
       } catch (err) {
         console.error("Failed to load problem:", err);
@@ -72,11 +74,10 @@ const ProblemPage = () => {
     try {
       const input =
         customInput || problem.visibleTestCases?.[activeTestIndex]?.input || "";
-      const res = await axios.post("http://localhost:5100/api/compiler/run", {
-        language,
-        code,
-        input,
-      });
+      const res = await axios.post(
+        `${import.meta.env.VITE_COMPILER_BASE_URL}/api/compiler/run`,
+        { language, code, input }
+      );
       setOutput(res.data.output || res.data.stderr || "No output");
     } catch (err) {
       console.error("Run failed:", err);
@@ -86,18 +87,10 @@ const ProblemPage = () => {
 
   const handleSubmit = async () => {
     try {
-      const hiddenRes = await axios.get(
-        `http://localhost:5050/api/problems/${id}`
+      const res = await axios.post(
+        `${import.meta.env.VITE_COMPILER_BASE_URL}/api/compiler/submit`,
+        { code, language, problemId: id }
       );
-
-      const hiddenTestCases = hiddenRes.data.hiddenTestCases;
-      
-
-      const res = await axios.post("http://localhost:5100/api/compiler/submit", {
-        code,
-        language,
-        problemId: id,
-      });
 
       if (res.data?.results?.length > 0) {
         setTestResults(res.data.results);
@@ -113,11 +106,14 @@ const ProblemPage = () => {
 
   const handleReviewCode = async () => {
     try {
-      const res = await fetch("http://localhost:5100/api/compiler/ai-review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
+      const res = await fetch(
+        `${import.meta.env.VITE_COMPILER_BASE_URL}/api/compiler/ai-review`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        }
+      );
 
       const data = await res.json();
       if (res.ok) {
@@ -252,7 +248,9 @@ const ProblemPage = () => {
               {testResults.map((result, idx) => (
                 <button
                   key={idx}
-                  className={`test-case-button ${result.passed ? "passed" : "failed"}`}
+                  className={`test-case-button ${
+                    result.passed ? "passed" : "failed"
+                  }`}
                 >
                   Test Case {idx + 1}
                 </button>
@@ -262,15 +260,15 @@ const ProblemPage = () => {
         )}
 
         {review && (
-  <div className="card mt-4">
-    <div className="card-body">
-      <h3 className="card-title fw-bold">AI Code Review:</h3>
-      <pre className="card-text" style={{ whiteSpace: 'pre-wrap' }}>
-        {review}
-      </pre>
-    </div>
-  </div>
-)}
+          <div className="card mt-4">
+            <div className="card-body">
+              <h3 className="card-title fw-bold">AI Code Review:</h3>
+              <pre className="card-text" style={{ whiteSpace: "pre-wrap" }}>
+                {review}
+              </pre>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

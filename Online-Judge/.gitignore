@@ -6,6 +6,8 @@ compiler/node_modules/
 # Ignore .env files
 .env
 
+keys
+
 # Logs
 *.log
 
