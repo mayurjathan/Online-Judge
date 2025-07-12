@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM --platform=linux/amd64 node:24-alpine
 WORKDIR /server
 COPY . .
 RUN npm install
