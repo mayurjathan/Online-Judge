@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./styles/ProblemPage.css";
 import Editor from "@monaco-editor/react";
@@ -63,7 +63,6 @@ const XCircle = ({ className }) => (
 const Play = ({ className }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293H15M9 10V9a2 2 0 012-2h2a2 2 0 012 2v1" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 18l4-4 4 4" />
   </svg>
 );
 
@@ -96,13 +95,22 @@ const Code = ({ className }) => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
   </svg>
 );
-const handleBackClick = () => {
-  navigate('/problems'); // Go to problems list
-  // or navigate('/home'); // Go to home page
-};
+
+const Clock = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const RefreshCw = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
 
 const ProblemPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [problem, setProblem] = useState(null);
   const [language, setLanguage] = useState("cpp");
   const [code, setCode] = useState(languageTemplates.cpp);
@@ -110,146 +118,250 @@ const ProblemPage = () => {
   const [activeTab, setActiveTab] = useState("description");
   const [activeTestIndex, setActiveTestIndex] = useState(0);
   const [customInput, setCustomInput] = useState("");
-  const [testResults, setTestResults] = useState([]);
   const [review, setReview] = useState("");
   const [submissions, setSubmissions] = useState([]);
   const [comments, setComments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [newComment, setNewComment] = useState("");
+  const [submissionResult, setSubmissionResult] = useState(null);
+
+  const handleBackClick = () => {
+    navigate('/home');
+  };
 
   useEffect(() => {
-    // Fetch problem data
-    const fetchProblem = async () => {
-      try {
-        const res = await axios.get(
-          `${import.meta.env.VITE_SERVER_BASE_URL}/api/problems/${id}`
-        );
-        setProblem(res.data);
-      } catch (err) {
-        console.error("Failed to load problem:", err);
-      }
-    };
-
-    // Fetch submissions
-    const fetchSubmissions = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get(
-          `${import.meta.env.VITE_SERVER_BASE_URL}/api/problems/${id}/submissions`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
-        setSubmissions(res.data);
-      } catch (err) {
-        console.error("Failed to load submissions:", err);
-        setSubmissions([]);
-      }
-    };
-
-    // Fetch comments
-    const fetchComments = async () => {
-      try {
-        const res = await axios.get(`${import.meta.env.VITE_SERVER_BASE_URL}/api/problems/${id}/comments`);
-        setComments(res.data);
-      } catch (err) {
-        console.error("Failed to load comments:", err);
-        setComments([]);
-      }
-    };
-
     fetchProblem();
     fetchSubmissions();
     fetchComments();
   }, [id]);
 
+  // Fetch problem data
+  const fetchProblem = async () => {
+    try {
+      const res = await axios.get(
+        `${import.meta.env.VITE_SERVER_BASE_URL}/api/problems/${id}`
+      );
+      setProblem(res.data);
+    } catch (err) {
+      console.error("Failed to load problem:", err);
+      setOutput("❌ Failed to load problem. Please try again.");
+    }
+  };
+
+  // Fetch user's submissions for this problem
+  const fetchSubmissions = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const res = await axios.get(
+        `${import.meta.env.VITE_SERVER_BASE_URL}/api/submissions/problem/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      setSubmissions(res.data);
+    } catch (err) {
+      console.error("Failed to load submissions:", err);
+      setSubmissions([]);
+    }
+  };
+
+  // Fetch comments for this problem
+  const fetchComments = async () => {
+    try {
+      const res = await axios.get(
+        `${import.meta.env.VITE_SERVER_BASE_URL}/api/problems/${id}/comments`
+      );
+      setComments(res.data.comments || res.data || []);
+    } catch (err) {
+      console.error("Failed to load comments:", err);
+      setComments([]);
+    }
+  };
+
+  // Handle code execution with custom input
   const handleRun = async () => {
     setIsLoading(true);
+    setOutput("");
+    setSubmissionResult(null);
+    
     try {
       const input = customInput || problem.visibleTestCases?.[activeTestIndex]?.input || "";
       const res = await axios.post(
         `${import.meta.env.VITE_COMPILER_BASE_URL}/api/compiler/run`,
         { language, code, input }
       );
-      setOutput(res.data.output || res.data.stderr || "No output");
-      setIsLoading(false);
+      
+      if (res.data.output !== undefined) {
+        setOutput(res.data.output || "No output");
+      } else if (res.data.error) {
+        setOutput(`❌ ${res.data.error}: ${res.data.message || 'Execution failed'}`);
+      } else {
+        setOutput("No output received");
+      }
     } catch (err) {
       console.error("Run failed:", err);
-      setOutput("Execution failed.");
+      if (err.response?.data?.error) {
+        setOutput(`❌ ${err.response.data.error}: ${err.response.data.message || 'Execution failed'}`);
+      } else {
+        setOutput("❌ Execution failed: " + (err.message || "Unknown error"));
+      }
+    } finally {
       setIsLoading(false);
     }
   };
 
+  // Handle submission - SECURE VERSION (No test case exposure)
   const handleSubmit = async () => {
     setIsLoading(true);
+    setOutput("");
+    setSubmissionResult(null);
+    
     try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setOutput("❌ Please login to submit solutions.");
+        setIsLoading(false);
+        return;
+      }
+
       const res = await axios.post(
         `${import.meta.env.VITE_COMPILER_BASE_URL}/api/compiler/submit`,
-        { code, language, problemId: id }
-      );
-      
-      if (res.data?.results?.length > 0) {
-        setTestResults(res.data.results);
-        setOutput("");
-      } else {
-        setOutput("No results returned from submission.");
-      }
-      setIsLoading(false);
-    } catch (err) {
-      console.error("Submit failed:", err);
-      setOutput("Submission failed.");
-      setIsLoading(false);
-    }
-  };
-
-  const handleReviewCode = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_COMPILER_BASE_URL}/api/compiler/ai-review`,
+        { code, language, problemId: id },
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code }),
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
       );
+      
+      if (res.data) {
+        const { 
+          passedAll, 
+          overallStatus, 
+          testCasesPassed, 
+          totalTestCases, 
+          message, 
+          totalExecutionTime 
+        } = res.data;
+        
+        // Store submission result
+        setSubmissionResult({
+          status: overallStatus,
+          passed: passedAll,
+          testCasesPassed,
+          totalTestCases,
+          executionTime: totalExecutionTime
+        });
 
-      const data = await res.json();
-      if (res.ok) {
-        setReview(data.review);
+        // Show only summary results - NO test case details
+        if (passedAll) {
+          setOutput(`🎉 Accepted!\nAll ${totalTestCases} test cases passed.\nExecution time: ${totalExecutionTime}`);
+        } else {
+          setOutput(`❌ ${overallStatus}\n${testCasesPassed}/${totalTestCases} test cases passed.\nExecution time: ${totalExecutionTime}`);
+        }
+        
+        // Refresh submissions list after a short delay
+        setTimeout(() => {
+          fetchSubmissions();
+        }, 1000);
+        
       } else {
-        setReview("Error: " + data.error);
+        setOutput("❌ No response received from server.");
       }
-      setIsLoading(false);
     } catch (err) {
-      console.error("AI review failed:", err);
-      setReview("AI review failed: " + err.message);
+      console.error("Submit failed:", err);
+      if (err.response?.data?.error) {
+        const errorMsg = err.response.data.message || err.response.data.error;
+        setOutput(`❌ ${err.response.data.error}\n${errorMsg}`);
+      } else {
+        setOutput("❌ Submission failed: " + (err.message || "Unknown error"));
+      }
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const addComment = async () => {
-    if (newComment.trim()) {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await axios.post(
-          `${import.meta.env.VITE_SERVER_BASE_URL}/api/problems/${id}/comments`,
-          { content: newComment },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
-        
-        setComments([res.data, ...comments]);
-        setNewComment("");
-      } catch (err) {
-        console.error("Failed to add comment:", err);
+  // Handle AI code review
+  const handleReviewCode = async () => {
+    setIsLoading(true);
+    setReview("");
+    
+    try {
+      const res = await axios.post(
+        `${import.meta.env.VITE_COMPILER_BASE_URL}/api/compiler/ai-review`,
+        { code }
+      );
+
+      if (res.data?.review) {
+        setReview(res.data.review);
+      } else {
+        setReview("No review received from AI service.");
       }
+    } catch (err) {
+      console.error("AI review failed:", err);
+      if (err.response?.data?.error) {
+        setReview(`Review Error: ${err.response.data.message || err.response.data.error}`);
+      } else {
+        setReview("AI review failed: " + (err.message || "Service unavailable"));
+      }
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  // Add a comment
+  const addComment = async () => {
+    if (!newComment.trim()) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("Please login to add comments.");
+        return;
+      }
+
+      const res = await axios.post(
+        `${import.meta.env.VITE_SERVER_BASE_URL}/api/problems/${id}/comments`,
+        { content: newComment.trim() },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      
+      setComments([res.data, ...comments]);
+      setNewComment("");
+    } catch (err) {
+      console.error("Failed to add comment:", err);
+      alert("Failed to add comment. Please try again.");
+    }
+  };
+
+  // Get status icon for submissions
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case "Accepted":
+        return <CheckCircle className="status-icon status-accepted" />;
+      case "Time Limit Exceeded":
+        return <Clock className="status-icon status-tle" />;
+      default:
+        return <XCircle className="status-icon status-failed" />;
+    }
+  };
+
+  // Handle language change
+  const handleLanguageChange = (e) => {
+    const lang = e.target.value;
+    setLanguage(lang);
+    setCode(languageTemplates[lang]);
+    setOutput("");
+    setReview("");
+    setSubmissionResult(null);
   };
 
   if (!problem) {
@@ -271,16 +383,16 @@ const ProblemPage = () => {
         <div className="problem-header">
           <div className="problem-header-content">
             <div className="problem-title-section">
-  <ChevronLeft className="back-arrow" onClick={handleBackClick} />
-  <h1 className="problem-title">{problem.title}</h1>
-</div>
+              <ChevronLeft className="back-arrow" onClick={handleBackClick} />
+              <h1 className="problem-title">{problem.title}</h1>
+            </div>
             <span className={`difficulty-badge difficulty-${problem.difficulty.toLowerCase()}`}>
               {problem.difficulty}
             </span>
           </div>
         </div>
 
-   
+        {/* Tabs */}
         <div className="tab-navigation">
           {['description', 'submissions', 'comments'].map((tab) => (
             <button
@@ -288,16 +400,18 @@ const ProblemPage = () => {
               className={`tab-button ${activeTab === tab ? 'active' : ''}`}
               onClick={() => setActiveTab(tab)}
             >
-              {tab}
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
 
-  
+        {/* Content */}
         <div className="tab-content">
           {activeTab === 'description' && (
-            <div>
-              <p className="problem-description">{problem.description}</p>
+            <div className="description-content">
+              <div className="problem-description">
+                {problem.description}
+              </div>
 
               {problem.examples?.length > 0 && (
                 <div className="examples-section">
@@ -315,7 +429,7 @@ const ProblemPage = () => {
                       {ex.explanation && (
                         <div className="example-line">
                           <strong className="example-label">Explanation:</strong>
-                          <span>{ex.explanation}</span>
+                          <span className="example-explanation">{ex.explanation}</span>
                         </div>
                       )}
                     </div>
@@ -324,7 +438,7 @@ const ProblemPage = () => {
               )}
 
               {problem.constraints?.length > 0 && (
-                <div>
+                <div className="constraints-section">
                   <h3 className="section-title">Constraints:</h3>
                   <ul className="constraints-list">
                     {problem.constraints.map((c, i) => (
@@ -333,44 +447,69 @@ const ProblemPage = () => {
                   </ul>
                 </div>
               )}
+
+              {problem.tags?.length > 0 && (
+                <div className="tags-section">
+                  <h3 className="section-title">Tags:</h3>
+                  <div className="tags-list">
+                    {problem.tags.map((tag, i) => (
+                      <span key={i} className="tag">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === 'submissions' && (
             <div className="submissions-container">
-              <h3 className="section-title">Submission History</h3>
+              <div className="submissions-header">
+                <h3 className="section-title">Submission History</h3>
+                <button 
+                  onClick={fetchSubmissions} 
+                  className="refresh-btn"
+                  title="Refresh submissions"
+                >
+                  <RefreshCw className="refresh-icon" />
+                </button>
+              </div>
+              
               {submissions.length === 0 ? (
-                <p>No submissions yet. Submit your solution to see results here!</p>
+                <div className="no-submissions">
+                  <p>No submissions yet. Submit your solution to see results here!</p>
+                </div>
               ) : (
-                submissions.map((sub, idx) => (
-                  <div key={idx} className="submission-item">
-                    <div className="submission-header">
-                      <div className="submission-status">
-                        {sub.status === 'Accepted' ? (
-                          <CheckCircle className="status-icon status-accepted" />
-                        ) : (
-                          <XCircle className="status-icon status-failed" />
-                        )}
-                        <span className={`status-text ${
-                          sub.status === 'Accepted' ? 'status-accepted' : 'status-failed'
-                        }`}>
-                          {sub.status}
+                <div className="submissions-list">
+                  {submissions.map((sub, idx) => (
+                    <div key={sub._id || idx} className="submission-item">
+                      <div className="submission-header">
+                        <div className="submission-status">
+                          {getStatusIcon(sub.status)}
+                          <span className={`status-text ${
+                            sub.status === 'Accepted' ? 'status-accepted' : 
+                            sub.status === 'Time Limit Exceeded' ? 'status-tle' : 'status-failed'
+                          }`}>
+                            {sub.status}
+                          </span>
+                        </div>
+                        <span className="submission-timestamp">
+                          {new Date(sub.createdAt).toLocaleString()}
                         </span>
                       </div>
-                      <span className="submission-timestamp">
-                        {new Date(sub.createdAt).toLocaleString()}
-                      </span>
+                      <div className="submission-details">
+                        <span className="submission-language">{sub.language?.toUpperCase()}</span>
+                        <span className="submission-runtime">
+                          Runtime: {sub.runtime || 'N/A'}
+                        </span>
+                        {sub.testCasesPassed !== undefined && sub.totalTestCases && (
+                          <span className="submission-tests">
+                            Tests: {sub.testCasesPassed}/{sub.totalTestCases}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="submission-details">
-                      <span>{sub.language}</span>
-                      <span>Runtime: {sub.runtime || 'N/A'}</span>
-                      <span>Memory: {sub.memory || 'N/A'}</span>
-                      {sub.testCasesPassed && sub.totalTestCases && (
-                        <span>Tests: {sub.testCasesPassed}/{sub.totalTestCases}</span>
-                      )}
-                    </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -379,7 +518,7 @@ const ProblemPage = () => {
             <div className="comments-container">
               <h3 className="section-title">Discussion</h3>
               
-        
+              {/* Add Comment */}
               <div className="comment-form">
                 <textarea
                   className="comment-textarea"
@@ -387,60 +526,66 @@ const ProblemPage = () => {
                   placeholder="Share your thoughts, hints, or ask questions..."
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
+                  maxLength={1000}
                 />
                 <div className="comment-actions">
-                  <button onClick={addComment} className="comment-submit-btn">
+                  <span className="char-count">{newComment.length}/1000</span>
+                  <button 
+                    onClick={addComment} 
+                    className="comment-submit-btn"
+                    disabled={!newComment.trim()}
+                  >
                     <MessageSquare className="btn-icon" />
                     Comment
                   </button>
                 </div>
               </div>
 
-            
+              {/* Comments List */}
               {comments.length === 0 ? (
-                <p>No comments yet. Start the discussion!</p>
+                <div className="no-comments">
+                  <p>No comments yet. Start the discussion!</p>
+                </div>
               ) : (
-                comments.map((comment) => (
-                  <div key={comment._id} className="comment-item">
-                    <div className="comment-item-header">
-                      <div className="comment-user">
-                        <User className="user-icon" />
-                        <span className="comment-username">
-                          {comment.userId?.username || 'Anonymous'}
+                <div className="comments-list">
+                  {comments.map((comment) => (
+                    <div key={comment._id} className="comment-item">
+                      <div className="comment-item-header">
+                        <div className="comment-user">
+                          <User className="user-icon" />
+                          <span className="comment-username">
+                            {comment.userId?.name || comment.userId?.username || 'Anonymous'}
+                          </span>
+                        </div>
+                        <span className="comment-timestamp">
+                          {new Date(comment.createdAt).toLocaleString()}
                         </span>
                       </div>
-                      <span className="submission-timestamp">
-                        {new Date(comment.createdAt).toLocaleString()}
-                      </span>
+                      <p className="comment-content">{comment.content}</p>
+                      <div className="comment-actions-row">
+                        <button className="comment-action-btn">
+                          👍 {comment.likes || 0}
+                        </button>
+                        <button className="comment-action-btn">Reply</button>
+                      </div>
                     </div>
-                    <p className="comment-content">{comment.content}</p>
-                    <div className="comment-actions-row">
-                      <button className="comment-action-btn">
-                        👍 {comment.likes || 0}
-                      </button>
-                      <button className="comment-action-btn">Reply</button>
-                    </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           )}
         </div>
       </div>
 
-     
+      {/* Right Panel - Code Editor */}
       <div className="code-right-panel">
-      
+        {/* Editor Header */}
         <div className="editor-header">
           <div className="editor-controls">
             <Code className="code-icon" />
             <select
               value={language}
-              onChange={(e) => {
-                const lang = e.target.value;
-                setLanguage(lang);
-                setCode(languageTemplates[lang]);
-              }}
+              onChange={handleLanguageChange}
               className="language-select"
             >
               <option value="cpp">C++</option>
@@ -451,43 +596,48 @@ const ProblemPage = () => {
           </div>
         </div>
 
-      
-        <div className="test-cases-header">
-          <div className="test-case-tabs">
-            {problem.visibleTestCases?.slice(0, 3).map((_, idx) => (
-              <button
-                key={idx}
-                className={`test-case-tab ${activeTestIndex === idx ? 'active' : ''}`}
-                onClick={() => setActiveTestIndex(idx)}
-              >
-                Case {idx + 1}
-              </button>
-            ))}
+        {/* Test Cases Tabs */}
+        {problem.visibleTestCases?.length > 0 && (
+          <div className="test-cases-header">
+            <div className="test-case-tabs">
+              {problem.visibleTestCases.slice(0, 3).map((_, idx) => (
+                <button
+                  key={idx}
+                  className={`test-case-tab ${activeTestIndex === idx ? 'active' : ''}`}
+                  onClick={() => setActiveTestIndex(idx)}
+                >
+                  Case {idx + 1}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="test-case-display">
-          <div className="test-case-line">
-            <span className="test-case-label">Input:</span>
-            <code className="test-case-value">
-              {problem.visibleTestCases?.[activeTestIndex]?.input || "N/A"}
-            </code>
+        {/* Test Case Display */}
+        {problem.visibleTestCases?.length > 0 && (
+          <div className="test-case-display">
+            <div className="test-case-line">
+              <span className="test-case-label">Input:</span>
+              <code className="test-case-value">
+                {problem.visibleTestCases[activeTestIndex]?.input || "N/A"}
+              </code>
+            </div>
+            <div className="test-case-line">
+              <span className="test-case-label">Expected:</span>
+              <code className="test-case-value">
+                {problem.visibleTestCases[activeTestIndex]?.output || "N/A"}
+              </code>
+            </div>
           </div>
-          <div className="test-case-line">
-            <span className="test-case-label">Expected:</span>
-            <code className="test-case-value">
-              {problem.visibleTestCases?.[activeTestIndex]?.output || "N/A"}
-            </code>
-          </div>
-        </div>
+        )}
 
-   
+        {/* Code Editor */}
         <div className="monaco-editor-container">
           <Editor
             height="100%"
             language={languageMap[language]}
             value={code}
-            onChange={(value) => setCode(value)}
+            onChange={(value) => setCode(value || "")}
             theme="vs-light"
             options={{
               fontSize: 14,
@@ -495,12 +645,17 @@ const ProblemPage = () => {
               automaticLayout: true,
               wordWrap: "on",
               scrollBeyondLastLine: false,
-              renderWhitespace: "selection"
+              renderWhitespace: "selection",
+              selectOnLineNumbers: true,
+              roundedSelection: false,
+              readOnly: false,
+              cursorStyle: 'line',
+              automaticLayout: true,
             }}
           />
         </div>
 
-
+        {/* Custom Input */}
         <div className="custom-input-section">
           <label className="input-label">
             Custom Input (optional)
@@ -514,61 +669,50 @@ const ProblemPage = () => {
           />
         </div>
 
-
+        {/* Action Buttons */}
         <div className="action-buttons">
           <button
             onClick={handleRun}
-            disabled={isLoading}
+            disabled={isLoading || !code.trim()}
             className="action-btn run-btn"
+            title="Run code with sample input"
           >
             <Play className="btn-icon" />
             {isLoading ? "Running..." : "Run"}
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isLoading}
+            disabled={isLoading || !code.trim()}
             className="action-btn submit-btn"
+            title="Submit solution for evaluation"
           >
             <Send className="btn-icon" />
             {isLoading ? "Submitting..." : "Submit"}
           </button>
           <button
             onClick={handleReviewCode}
-            disabled={isLoading}
+            disabled={isLoading || !code.trim()}
             className="action-btn review-btn"
+            title="Get AI code review"
           >
             <Brain className="btn-icon" />
             {isLoading ? "Reviewing..." : "AI Review"}
           </button>
         </div>
 
-      
+        {/* Output/Results */}
         <div className="output-section">
+        
+          
+          {/* Output Display */}
           {output && (
             <div className="output-content">
-              <h4 className="output-title">Output:</h4>
+              <h4 className="output-title">Result:</h4>
               <pre className="output-text">{output}</pre>
             </div>
           )}
 
-          {testResults.length > 0 && (
-            <div className="output-content">
-              <h4 className="output-title">Test Results:</h4>
-              <div className="test-results-grid">
-                {testResults.map((result, idx) => (
-                  <div
-                    key={idx}
-                    className={`test-result-item ${
-                      result.passed ? 'test-result-passed' : 'test-result-failed'
-                    }`}
-                  >
-                    #{idx + 1}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
+          {/* AI Review */}
           {review && (
             <div className="ai-review-section">
               <h4 className="ai-review-title">

@@ -4,43 +4,97 @@
   font-family: 'Segoe UI', sans-serif;
 }
 
-.contests-header {
-  background: linear-gradient(90deg, #576cbc 30%, #845def 100%);
-  color: white;
-  padding: 20px 40px;
-  box-shadow: 0 4px 18px rgba(102, 90, 204, 0.2);
-}
-
-.header-content {
+/* Header styles matching Home page */
+.home-header {
   display: flex;
   align-items: center;
-  gap: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.back-btn {
+  justify-content: space-between;
+  background: linear-gradient(90deg, #576cbc 30%, #845def 100%);
   color: white;
-  text-decoration: none;
-  font-size: 1rem;
-  opacity: 0.9;
-  transition: opacity 0.3s;
+  padding: 18px 30px;
+  border-radius: 15px;
+  box-shadow: 0 4px 18px rgba(102, 90, 204, 0.2);
+  margin: 20px 40px 30px; /* Adjusted margin to match Home page */
 }
 
-.back-btn:hover {
-  opacity: 1;
-}
-
-.contests-header h1 {
-  font-size: 2rem;
+.site-title {
+  font-size: 1.8rem;
   font-weight: 700;
   margin: 0;
+}
+
+.nav-links {
+  display: flex;
+  gap: 26px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  align-items: center;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.3s, transform 0.2s;
+}
+
+.nav-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+  transform: translateY(-1px);
+}
+
+.profile-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid #8f5edc;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.profile-icon:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(143, 94, 220, 0.3);
+}
+
+.logout-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.3s, transform 0.2s;
+}
+
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
 }
 
 .contests-main {
   max-width: 1200px;
   margin: 0 auto;
   padding: 30px 40px;
+}
+
+.contests-content {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 30px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.page-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 30px 0;
+  text-align: center;
 }
 
 .contest-tabs {
@@ -83,13 +137,38 @@
   padding: 50px;
 }
 
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(87, 108, 188, 0.3);
+  border-left: 4px solid #576cbc;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 .error-message {
-  background: #ffe6e6;
+  background: rgba(255, 230, 230, 0.9);
   color: #d63384;
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 20px;
   border-left: 4px solid #d63384;
+}
+
+.retry-btn {
+  background: #d63384;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 10px;
 }
 
 .no-contests {
@@ -148,9 +227,9 @@
 
 .contest-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  justify-content: space-between;
+  margin-bottom: 20px; /* Adjusted to avoid confusion with home-header */
 }
 
 .contest-header h3 {
@@ -230,10 +309,37 @@
   border: 1px solid rgba(255, 193, 7, 0.3);
 }
 
+.contest-live-indicator {
+  background: rgba(40, 167, 69, 0.15);
+  color: #155724;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
 .contest-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.registration-required {
+  color: #856404;
+  font-style: italic;
+  padding: 10px 0;
+}
+
+.registration-indicator {
+  margin-top: 15px;
+  color: #155724;
+  font-weight: 600;
+  background: rgba(40, 167, 69, 0.1);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
 }
 
 .btn {
@@ -250,12 +356,17 @@
   min-width: 120px;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background: linear-gradient(90deg, #576cbc 30%, #845def 100%);
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: linear-gradient(90deg, #4a5ea8 30%, #7248db 100%);
   transform: translateY(-2px);
 }
@@ -265,7 +376,7 @@
   color: white;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background: #545b62;
   transform: translateY(-2px);
 }
@@ -285,6 +396,22 @@
 @media (max-width: 768px) {
   .contests-main {
     padding: 20px;
+  }
+  
+  .contests-content {
+    padding: 20px;
+  }
+  
+  .home-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+    margin: 15px 20px 30px;
+  }
+  
+  .nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
   }
   
   .contest-tabs {

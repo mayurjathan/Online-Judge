@@ -1,0 +1,25 @@
+// Create this file as java.policy in the execution folder
+grant {
+    // Allow basic Java operations
+    permission java.lang.RuntimePermission "accessDeclaredMembers";
+    permission java.lang.RuntimePermission "getProtectionDomain";
+    permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
+    
+    // Allow reading system properties
+    permission java.util.PropertyPermission "*", "read";
+    
+    // Allow standard I/O operations
+    permission java.io.FilePermission "<<ALL FILES>>", "read";
+    
+    // Deny file write operations
+    // permission java.io.FilePermission "<<ALL FILES>>", "write";
+    
+    // Deny network operations
+    // permission java.net.SocketPermission "*:*", "connect,resolve";
+    
+    // Deny process execution
+    // permission java.io.FilePermission "<<ALL FILES>>", "execute";
+    
+    // Deny system exit
+    // permission java.lang.RuntimePermission "exitVM.*";
+};

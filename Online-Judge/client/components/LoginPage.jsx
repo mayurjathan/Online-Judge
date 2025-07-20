@@ -1,27 +1,66 @@
 // src/pages/LoginPage.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./styles/Login.css";
 import axios from "axios";
-import loginJudge from './img/image copy 2.png'; 
-
+import loginJudge from './img/image copy 2.png';
 
 function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [keepSigned, setKeepSigned] = useState(true);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      navigate("/home");
+    }
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError("");
+
     try {
       const res = await axios.post(
         `${import.meta.env.VITE_SERVER_BASE_URL}/api/auth/login`,
         { email, password }
       );
-      localStorage.setItem("token", res.data.token);
-      window.location.href = "/home";
+
+      if (res.data.token) {
+        // Store token
+        localStorage.setItem("token", res.data.token);
+        
+        // Set axios default header for future requests
+        axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+        
+        // Store user info if provided
+        if (res.data.user) {
+          localStorage.setItem("user", JSON.stringify(res.data.user));
+        }
+
+        // Handle "Remember me" functionality
+        if (!keepSigned) {
+          // Set token to expire when browser closes
+          sessionStorage.setItem("token", res.data.token);
+          localStorage.removeItem("token");
+        }
+
+        console.log("Login successful, redirecting to home...");
+        navigate("/home");
+      } else {
+        setError("Login failed. No token received.");
+      }
     } catch (err) {
+      console.error("Login error:", err);
       setError(err.response?.data?.error || "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -44,6 +83,7 @@ function LoginPage() {
               autoComplete="username"
               placeholder="Enter your email"
               required
+              disabled={loading}
             />
 
             <label>Password</label>
@@ -54,6 +94,7 @@ function LoginPage() {
               autoComplete="current-password"
               placeholder="Enter your password"
               required
+              disabled={loading}
             />
 
             <div className="options-row">
@@ -62,6 +103,7 @@ function LoginPage() {
                   type="checkbox"
                   checked={keepSigned}
                   onChange={() => setKeepSigned(!keepSigned)}
+                  disabled={loading}
                 />
                 Remember me
               </label>
@@ -70,12 +112,16 @@ function LoginPage() {
               </a>
             </div>
 
-            <button className="login-btn" type="submit">
-              Sign In
+            <button 
+              className="login-btn" 
+              type="submit" 
+              disabled={loading}
+            >
+              {loading ? "Signing In..." : "Sign In"}
             </button>
 
             <div className="link-text">
-              Don’t have an account? <a href="/register">Register here</a>
+              Don't have an account? <a href="/register">Register here</a>
             </div>
           </form>
         </div>
@@ -87,4 +133,4 @@ function LoginPage() {
   );
 }
 
-export default LoginPage; 
+export default LoginPage;

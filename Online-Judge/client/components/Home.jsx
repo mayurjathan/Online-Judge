@@ -1,7 +1,7 @@
-// src/pages/Home.jsx
+
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./styles/Home.css";
 
 function Home() {
@@ -21,19 +21,51 @@ function Home() {
     mediumCount: 0,
     hardCount: 0
   });
+  const navigate = useNavigate();
+
+  
+  const getAxiosConfig = () => {
+    const token = localStorage.getItem('token');
+    return {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    };
+  };
 
   useEffect(() => {
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/');
+      return;
+    }
+
+    // Fetch data
     fetchProblems();
     fetchUserProfile();
-    fetchUserStats();
-  }, []);
+  }, [navigate]);
 
   const fetchProblems = async () => {
     try {
-      const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_BASE_URL}/api/problems`
-      );
+      const baseURL = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:5050';
+      const res = await axios.get(`${baseURL}/api/problems`);
+      
       setProblems(res.data);
+      
+     
+      const easyCount = res.data.filter(p => p.difficulty === "Easy").length;
+      const mediumCount = res.data.filter(p => p.difficulty === "Medium").length;
+      const hardCount = res.data.filter(p => p.difficulty === "Hard").length;
+      
+      setStats({
+        totalProblems: res.data.length,
+        solvedProblems: 0,
+        easyCount,
+        mediumCount,
+        hardCount
+      });
+      
       setLoading(false);
     } catch (err) {
       console.error("Failed to fetch problems:", err);
@@ -44,42 +76,41 @@ function Home() {
 
   const fetchUserProfile = async () => {
     try {
+      const baseURL = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:5050';
       const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_BASE_URL}/api/profile`,
-        { withCredentials: true }
+        `${baseURL}/api/profile`,
+        getAxiosConfig()
       );
-      if (res.data.avatar || res.data.username) {
+      
+      if (res.data) {
         setUser({
           avatar: res.data.avatar || user.avatar,
-          username: res.data.username || user.username
+          username: res.data.username || res.data.name || user.username
         });
       }
+      
+      // Try to fetch user stats
+      fetchUserStats();
     } catch (err) {
-      // Use default user if failed to fetch
-      console.log("Using guest profile");
+      console.log("Could not fetch profile, using guest profile");
+      
     }
   };
 
   const fetchUserStats = async () => {
     try {
+      const baseURL = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:5050';
       const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_BASE_URL}/api/user/stats`,
-        { withCredentials: true }
+        `${baseURL}/api/user/stats`,
+        getAxiosConfig()
       );
-      setStats(res.data);
-    } catch (err) {
-      // Use default stats if failed
-      const easyCount = problems.filter(p => p.difficulty === "Easy").length;
-      const mediumCount = problems.filter(p => p.difficulty === "Medium").length;
-      const hardCount = problems.filter(p => p.difficulty === "Hard").length;
       
-      setStats({
-        totalProblems: problems.length,
-        solvedProblems: 0,
-        easyCount,
-        mediumCount,
-        hardCount
-      });
+      setStats(prevStats => ({
+        ...prevStats,
+        solvedProblems: res.data.solvedProblems || 0
+      }));
+    } catch (err) {
+      console.log("Could not fetch user stats");
     }
   };
 
@@ -94,7 +125,8 @@ function Home() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    window.location.href = "/";
+    localStorage.removeItem("user");
+    navigate("/");
   };
 
   if (loading) {
@@ -109,7 +141,7 @@ function Home() {
   }
 
   return (
-    <div className="home-page">
+    <div >
       <header className="home-header">
         <h1 className="site-title">Online Judge</h1>
         <nav className="nav-links">
@@ -126,7 +158,7 @@ function Home() {
           <button onClick={handleLogout} className="logout-btn">Logout</button>
         </nav>
       </header>
-
+     <div className="home-page">
       {/* Stats Dashboard */}
       <div className="stats-dashboard">
         <div className="stats-card">
@@ -167,7 +199,7 @@ function Home() {
           </div>
           
           <div className="filter-container">
-            <label htmlFor="difficulty-filter">     Filter by difficulty:</label>
+            <label htmlFor="difficulty-filter">Filter by difficulty:</label>
             <select
               id="difficulty-filter"
               value={filterDifficulty}
@@ -191,7 +223,7 @@ function Home() {
 
         {filteredProblems.length === 0 ? (
           <div className="no-problems">
-            <p>No problems found matching your criteria.</p>
+            <p>No problems found. Please add some problems to get started.</p>
             {(searchTerm || filterDifficulty !== "all") && (
               <button 
                 onClick={() => {
@@ -233,6 +265,7 @@ function Home() {
       <footer className="home-footer">
         <p>&copy; 2025 Online Judge. All rights reserved.</p>
       </footer>
+    </div>
     </div>
   );
 }

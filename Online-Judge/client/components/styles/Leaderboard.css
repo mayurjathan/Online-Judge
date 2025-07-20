@@ -4,37 +4,75 @@
   font-family: 'Segoe UI', sans-serif;
 }
 
-.leaderboard-header {
-  background: linear-gradient(90deg, #576cbc 30%, #845def 100%);
-  color: white;
-  padding: 20px 40px;
-  box-shadow: 0 4px 18px rgba(102, 90, 204, 0.2);
-}
-
-.header-content {
+/* Header styles matching Home page */
+.home-header {
   display: flex;
   align-items: center;
-  gap: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.back-btn {
+  justify-content: space-between;
+  background: linear-gradient(90deg, #576cbc 30%, #845def 100%);
   color: white;
-  text-decoration: none;
-  font-size: 1rem;
-  opacity: 0.9;
-  transition: opacity 0.3s;
+  padding: 18px 30px;
+  border-radius: 15px;
+  box-shadow: 0 4px 18px rgba(102, 90, 204, 0.2);
+  margin: 20px 40px 30px; /* Adjusted margin to match Home page */
 }
 
-.back-btn:hover {
-  opacity: 1;
-}
-
-.leaderboard-header h1 {
-  font-size: 2rem;
+.site-title {
+  font-size: 1.8rem;
   font-weight: 700;
   margin: 0;
+}
+
+.nav-links {
+  display: flex;
+  gap: 26px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  align-items: center;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.3s, transform 0.2s;
+}
+
+.nav-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+  transform: translateY(-1px);
+}
+
+.profile-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid #8f5edc;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.profile-icon:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(143, 94, 220, 0.3);
+}
+
+.logout-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.3s, transform 0.2s;
+}
+
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
 }
 
 .leaderboard-main {
@@ -388,6 +426,18 @@
 @media (max-width: 768px) {
   .leaderboard-main {
     padding: 20px;
+  }
+  
+  .home-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+    margin: 15px 20px 30px;
+  }
+  
+  .nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
   }
   
   .filter-section {
