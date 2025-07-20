@@ -29,7 +29,7 @@ const checkRateLimit = (ip) => {
 // Fetch only inputs and output hashes (not actual expected outputs)
 const fetchSecureTestCases = async (problemId, authHeader) => {
   const response = await axios.post(
-    `${process.env.SERVER_BASE_URL}/api/problems/${problemId}/secure-test-cases`,
+    `${process.env.SERVER_BASE_URL}/api/problems/${problemId}/test-cases`,
     {},
     {
       headers: {

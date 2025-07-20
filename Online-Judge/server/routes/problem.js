@@ -122,6 +122,65 @@ router.post("/:id/test-cases", verifyToken, async (req, res) => {
   }
 });
 
+// Route 1: Get secure test cases (only inputs, no expected outputs)
+router.post("/:id/secure-test-cases", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate ObjectId
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid problem ID format" });
+    }
+    
+    // Get full test cases from your database
+    const problem = await Problem.findById(id);
+    if (!problem || !problem.hiddenTestCases) {
+      return res.status(404).json({ error: "Test cases not found" });
+    }
+    
+    // Return only inputs, hide expected outputs
+    const secureTestCases = problem.hiddenTestCases.map(test => ({
+      input: test.input
+      // No output field - this keeps expected outputs hidden
+    }));
+    
+    res.json({ testCases: secureTestCases });
+  } catch (error) {
+    console.error("Error fetching secure test cases:", error);
+    res.status(500).json({ error: "Failed to fetch test cases" });
+  }
+});
+
+// Route 2: Verify output without exposing expected result
+router.post("/:id/verify-output", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { testIndex, actualOutput } = req.body;
+    
+    // Validate ObjectId
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid problem ID format" });
+    }
+    
+    // Get the problem and test case
+    const problem = await Problem.findById(id);
+    if (!problem || !problem.hiddenTestCases || !problem.hiddenTestCases[testIndex]) {
+      return res.status(404).json({ error: "Test case not found" });
+    }
+    
+    const expectedOutput = problem.hiddenTestCases[testIndex].output;
+    const isCorrect = actualOutput.trim() === expectedOutput.trim();
+    
+    // Return only boolean result, not the expected output
+    res.json({ isCorrect });
+  } catch (error) {
+    console.error("Error verifying output:", error);
+    res.status(500).json({ error: "Failed to verify output" });
+  }
+});
+
 // Get comments for a specific problem
 router.get("/:id/comments", async (req, res) => {
   try {
@@ -399,7 +458,7 @@ router.get("/search/:query", async (req, res) => {
   }
 });
 
-// ADMIN ENDPOINTS (commented out admin checks - implement role-based auth as needed)
+// ADMIN ENDPOINTS
 
 // Get full problem with hidden test cases (admin only)
 router.get("/:id/admin", verifyToken, async (req, res) => {
@@ -546,54 +605,6 @@ router.delete("/:id", verifyToken, async (req, res) => {
   } catch (error) {
     console.error("Error deleting problem:", error);
     res.status(500).json({ error: "Failed to delete problem" });
-  }
-});
-// Add these routes to your backend (Render server)
-
-// Route 1: Get secure test cases (only inputs, no expected outputs)
-router.post("/problems/:problemId/secure-test-cases", async (req, res) => {
-  try {
-    const { problemId } = req.params;
-    
-    // Get full test cases from your database
-    const problem = await Problem.findById(problemId);
-    if (!problem || !problem.testCases) {
-      return res.status(404).json({ error: "Test cases not found" });
-    }
-    
-    // Return only inputs, hide expected outputs
-    const secureTestCases = problem.testCases.map(test => ({
-      input: test.input
-      // No output field - this keeps expected outputs hidden
-    }));
-    
-    res.json({ testCases: secureTestCases });
-  } catch (error) {
-    console.error("Error fetching secure test cases:", error);
-    res.status(500).json({ error: "Failed to fetch test cases" });
-  }
-});
-
-// Route 2: Verify output without exposing expected result
-router.post("/problems/:problemId/verify-output", async (req, res) => {
-  try {
-    const { problemId } = req.params;
-    const { testIndex, actualOutput } = req.body;
-    
-    // Get the problem and test case
-    const problem = await Problem.findById(problemId);
-    if (!problem || !problem.testCases || !problem.testCases[testIndex]) {
-      return res.status(404).json({ error: "Test case not found" });
-    }
-    
-    const expectedOutput = problem.testCases[testIndex].output;
-    const isCorrect = actualOutput.trim() === expectedOutput.trim();
-    
-    // Return only boolean result, not the expected output
-    res.json({ isCorrect });
-  } catch (error) {
-    console.error("Error verifying output:", error);
-    res.status(500).json({ error: "Failed to verify output" });
   }
 });
 
