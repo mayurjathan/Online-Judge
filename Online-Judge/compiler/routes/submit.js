@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const axios = require("axios");
 const fs = require("fs");
+const crypto = require("crypto");
 
 const generateFile = require("../utils/generateFile");
 const { compileCpp, runCpp } = require("../execution/executeCpp");
@@ -25,9 +26,10 @@ const checkRateLimit = (ip) => {
   submitRateLimit.set(ip, recent);
 };
 
-const fetchTestCases = async (problemId, authHeader) => {
+// Fetch only inputs and output hashes (not actual expected outputs)
+const fetchSecureTestCases = async (problemId, authHeader) => {
   const response = await axios.post(
-    `${process.env.SERVER_BASE_URL || 'http://localhost:5050'}/api/problems/${problemId}/test-cases`,
+    `${process.env.SERVER_BASE_URL}/api/problems/${problemId}/secure-test-cases`,
     {},
     {
       headers: {
@@ -41,6 +43,26 @@ const fetchTestCases = async (problemId, authHeader) => {
   return response.data.testCases;
 };
 
+// Verify output with backend using hash comparison
+const verifyOutput = async (problemId, testIndex, actualOutput, authHeader) => {
+  const response = await axios.post(
+    `${process.env.SERVER_BASE_URL}/api/problems/${problemId}/verify-output`,
+    {
+      testIndex,
+      actualOutput: actualOutput.trim()
+    },
+    {
+      headers: {
+        'Authorization': authHeader || '',
+        'Content-Type': 'application/json',
+        'X-Service': 'compiler'
+      },
+      timeout: 5000
+    }
+  );
+  return response.data.isCorrect;
+};
+
 const saveSubmission = async (submissionData, authHeader) => {
   console.log("💾 Attempting to save submission:", {
     userId: submissionData.userId,
@@ -50,7 +72,7 @@ const saveSubmission = async (submissionData, authHeader) => {
   });
   
   const response = await axios.post(
-    `${process.env.SERVER_BASE_URL || 'http://localhost:5050'}/api/submissions`,
+    `${process.env.SERVER_BASE_URL}/api/submissions`,
     submissionData,
     {
       headers: {
@@ -81,7 +103,7 @@ const runTestCase = async (language, filepath, executablePath, input, timeLimit 
 };
 
 router.post("/submit", async (req, res) => {
-  const { code, language = "cpp", problemId, userId } = req.body; // Get userId from request body
+  const { code, language = "cpp", problemId, userId } = req.body;
   const clientIP = req.ip || req.connection.remoteAddress;
   const authHeader = req.headers.authorization;
 
@@ -99,9 +121,9 @@ router.post("/submit", async (req, res) => {
   try {
     checkRateLimit(clientIP);
 
-    // Get test cases
-    const testCases = await fetchTestCases(problemId, authHeader);
-    if (!testCases?.length) {
+    // Get test cases (only inputs, no expected outputs)
+    const secureTestCases = await fetchSecureTestCases(problemId, authHeader);
+    if (!secureTestCases?.length) {
       return res.status(404).json({ error: "No test cases found" });
     }
 
@@ -114,19 +136,23 @@ router.post("/submit", async (req, res) => {
       executablePath = compileC(filepath);
     }
 
-    // Run test cases
+    // Run test cases and verify with backend
     let passedCount = 0;
     let totalExecutionTime = 0;
     let overallStatus = "Accepted";
 
-    for (const test of testCases) {
+    for (let i = 0; i < secureTestCases.length; i++) {
+      const test = secureTestCases[i];
       const startTime = Date.now();
       
       try {
         const output = await runTestCase(language, filepath, executablePath, test.input);
         totalExecutionTime += Date.now() - startTime;
 
-        if (output.trim() === test.output.trim()) {
+        // Verify output with backend (backend compares against actual expected output)
+        const isCorrect = await verifyOutput(problemId, i, output, authHeader);
+        
+        if (isCorrect) {
           passedCount++;
         } else if (overallStatus === "Accepted") {
           overallStatus = "Wrong Answer";
@@ -144,7 +170,7 @@ router.post("/submit", async (req, res) => {
       }
     }
 
-    const passedAll = passedCount === testCases.length;
+    const passedAll = passedCount === secureTestCases.length;
     
     // Save submission
     if (userId) {
@@ -158,7 +184,7 @@ router.post("/submit", async (req, res) => {
           status: overallStatus,
           runtime: `${totalExecutionTime}ms`,
           testCasesPassed: passedCount,
-          totalTestCases: testCases.length
+          totalTestCases: secureTestCases.length
         }, authHeader);
       } catch (saveError) {
         console.error("❌ Failed to save submission:", saveError.response?.data || saveError.message);
@@ -172,10 +198,10 @@ router.post("/submit", async (req, res) => {
       overallStatus,
       totalExecutionTime: `${totalExecutionTime}ms`,
       testCasesPassed: passedCount,
-      totalTestCases: testCases.length,
+      totalTestCases: secureTestCases.length,
       message: passedAll ? 
         "🎉 All test cases passed!" : 
-        `❌ ${passedCount}/${testCases.length} test cases passed`
+        `❌ ${passedCount}/${secureTestCases.length} test cases passed`
     });
 
   } catch (err) {
