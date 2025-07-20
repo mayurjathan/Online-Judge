@@ -260,9 +260,6 @@ router.post("/submit", async (req, res) => {
       totalTestCases: totalCount,
       language,
       problemId,
-      // NO individual test results
-      // NO test case inputs/outputs
-      // NO detailed error messages
       message: passedAll ? 
         "🎉 All test cases passed!" : 
         `❌ ${passedCount}/${totalCount} test cases passed`

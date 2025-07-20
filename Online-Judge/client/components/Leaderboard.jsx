@@ -116,7 +116,7 @@ function Leaderboard() {
   return (
     <div className="leaderboard-page">
       <header className="home-header">
-         <Link to="/home" className="nav-link"><h1 className="site-title">Online Judge</h1></Link>
+         <Link to="/home" className="nav-link"><h1 className="site-title">Rush2Code</h1></Link>
         <nav className="nav-links">
           <Link to="/contests" className="nav-link">Contests</Link>
           <Link to="/leaderboard" className="nav-link active">Leaderboard</Link>

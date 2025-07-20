@@ -3,9 +3,7 @@ const router = express.Router();
 const User = require("../models/User"); // adjust path if needed
 const authMiddleware = require("../middleware/auth"); // assuming you have auth middleware
 
-// @route   GET /api/profile
-// @desc    Get current user's profile
-// @access  Private
+
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id; // set by auth middleware

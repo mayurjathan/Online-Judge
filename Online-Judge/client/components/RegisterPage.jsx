@@ -95,9 +95,9 @@ function RegisterPage() {
       <div className="login-card">
         <div className="card-left">
           <form className="auth-form" onSubmit={handleRegister}>
-            <div className="heading-main">Register for Online Judge</div>
+            <div className="heading-main">Register for Rush2Code</div>
             <div className="heading-sub">
-              Create your Online Judge account now.
+              Create your Rush2Code account now.
             </div>
             {error && <p className="error-msg">{error}</p>}
 
@@ -161,7 +161,7 @@ function RegisterPage() {
           </form>
         </div>
         <div className="card-right">
-          <img src={loginJudge} alt="Online Judge Register Art" />
+          <img src={loginJudge} alt="Register Art" />
         </div>
       </div>
     </div>

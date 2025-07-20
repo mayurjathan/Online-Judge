@@ -227,7 +227,7 @@ function Contests() {
   return (
     <div className="contests-page">
       <header className="home-header">
-        <h1 className="site-title">Online Judge</h1>
+        <h1 className="site-title">Rush2Code</h1>
         <nav className="nav-links">
           <Link to="/contests" className="nav-link active">Contests</Link>
           <Link to="/leaderboard" className="nav-link">Leaderboard</Link>
@@ -385,7 +385,7 @@ function Contests() {
 
                     {isRegistered && (
                       <div className="registration-indicator">
-                        ✅ You are registered for this contest
+                        You are registered for this contest
                       </div>
                     )}
                   </div>

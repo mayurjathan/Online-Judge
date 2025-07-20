@@ -214,7 +214,7 @@ function Profile() {
   return (
     <div className="profile-page">
       <header className="profile-header">
-        <h1 className="site-title">Online Judge</h1>
+        <h1 className="site-title">Rush2Code</h1>
         <nav className="nav-links">
           <Link to="/home" className="nav-link">Home</Link>
           <Link to="/contests" className="nav-link">Contests</Link>
@@ -426,7 +426,7 @@ function Profile() {
       </main>
 
       <footer className="profile-footer">
-        <p>&copy; 2025 Online Judge. All rights reserved.</p>
+        <p>&copy; 2025 Rush2Code. All rights reserved.</p>
       </footer>
     </div>
   );

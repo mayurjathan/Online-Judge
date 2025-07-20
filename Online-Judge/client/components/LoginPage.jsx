@@ -69,7 +69,7 @@ function LoginPage() {
       <div className="login-card">
         <div className="card-left">
           <form className="login-form" onSubmit={handleLogin}>
-            <div className="heading-main">Sign In to Online Judge</div>
+            <div className="heading-main">Sign In to Rush2Code</div>
             <div className="heading-sub">
               Access problems, submit code, and track your results.
             </div>
@@ -126,7 +126,7 @@ function LoginPage() {
           </form>
         </div>
         <div className="card-right">
-          <img src={loginJudge} alt="Online Judge Login Art" />
+          <img src={loginJudge} alt="Login Art" />
         </div>
       </div>
     </div>
