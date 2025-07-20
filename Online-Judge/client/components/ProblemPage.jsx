@@ -108,6 +108,24 @@ const RefreshCw = ({ className }) => (
   </svg>
 );
 
+const ChevronDown = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+  </svg>
+);
+
+const ChevronUp = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+  </svg>
+);
+
+const Copy = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+  </svg>
+);
+
 const ProblemPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -124,6 +142,7 @@ const ProblemPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [submissionResult, setSubmissionResult] = useState(null);
+  const [expandedSubmissions, setExpandedSubmissions] = useState(new Set());
 
   const handleBackClick = () => {
     navigate('/home');
@@ -182,6 +201,64 @@ const ProblemPage = () => {
     }
   };
 
+  // Fetch submission code
+  const fetchSubmissionCode = async (submissionId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `${import.meta.env.VITE_SERVER_BASE_URL}/api/submissions/${submissionId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching submission code:", error);
+      return null;
+    }
+  };
+
+  // Toggle submission code visibility
+  const toggleSubmissionCode = async (submissionId) => {
+    if (expandedSubmissions.has(submissionId)) {
+      // Collapse
+      setExpandedSubmissions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(submissionId);
+        return newSet;
+      });
+    } else {
+      // Expand and fetch code if needed
+      setExpandedSubmissions(prev => new Set([...prev, submissionId]));
+      
+      // Find submission and add code if not already present
+      const submission = submissions.find(sub => sub._id === submissionId);
+      if (submission && !submission.code) {
+        const submissionData = await fetchSubmissionCode(submissionId);
+        if (submissionData) {
+          setSubmissions(prev => prev.map(sub => 
+            sub._id === submissionId 
+              ? { ...sub, code: submissionData.code }
+              : sub
+          ));
+        }
+      }
+    }
+  };
+
+  // Copy code to clipboard
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Code copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy code:', err);
+      alert('Failed to copy code');
+    }
+  };
+
   // Handle code execution with custom input
   const handleRun = async () => {
     setIsLoading(true);
@@ -214,7 +291,7 @@ const ProblemPage = () => {
     }
   };
 
-  // Handle submission - SECURE VERSION (No test case exposure)
+  // Handle submission
   const handleSubmit = async () => {
     setIsLoading(true);
     setOutput("");
@@ -228,9 +305,26 @@ const ProblemPage = () => {
         return;
       }
 
+      // Extract userId from token (simple decode without verification)
+      const getUserIdFromToken = (token) => {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          return payload.id;
+        } catch {
+          return null;
+        }
+      };
+
+      const userId = getUserIdFromToken(token);
+
       const res = await axios.post(
         `${import.meta.env.VITE_COMPILER_BASE_URL}/api/compiler/submit`,
-        { code, language, problemId: id },
+        { 
+          code, 
+          language, 
+          problemId: id,
+          userId // Add userId to request body
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -507,6 +601,46 @@ const ProblemPage = () => {
                           </span>
                         )}
                       </div>
+                      
+                      {/* Code View Toggle */}
+                      <div className="submission-actions">
+                        <button 
+                          className="view-code-btn"
+                          onClick={() => toggleSubmissionCode(sub._id)}
+                        >
+                          <Code className="btn-icon" />
+                          {expandedSubmissions.has(sub._id) ? 'Hide Code' : 'View Code'}
+                          {expandedSubmissions.has(sub._id) ? 
+                            <ChevronUp className="btn-icon" /> : 
+                            <ChevronDown className="btn-icon" />
+                          }
+                        </button>
+                      </div>
+                      
+                      {/* Code Display */}
+                      {expandedSubmissions.has(sub._id) && (
+                        <div className="submission-code-section">
+                          <div className="submission-code-header">
+                            <span className="code-language">{sub.language?.toUpperCase()}</span>
+                            {sub.code && (
+                              <button 
+                                className="copy-code-btn"
+                                onClick={() => copyToClipboard(sub.code)}
+                              >
+                                <Copy className="btn-icon" />
+                                Copy Code
+                              </button>
+                            )}
+                          </div>
+                          <div className="submission-code-content">
+                            {sub.code ? (
+                              <pre><code>{sub.code}</code></pre>
+                            ) : (
+                              <div className="code-loading">Loading code...</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -654,7 +788,6 @@ const ProblemPage = () => {
             }}
           />
         </div>
-
         {/* Custom Input */}
         <div className="custom-input-section">
           <label className="input-label">

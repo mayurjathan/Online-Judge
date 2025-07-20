@@ -13,29 +13,78 @@ function Contests() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchContests();
-    fetchCurrentUser();
-  }, []);
+    const initializeContests = async () => {
+      // Check authentication first
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/');
+        return;
+      }
+
+      await fetchCurrentUser();
+      await fetchContests();
+    };
+
+    initializeContests();
+  }, [navigate]);
 
   const fetchContests = async () => {
     setLoading(true);
+    setError('');
+    
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/');
+        return;
+      }
+
+      console.log('Fetching contests...');
+
       const response = await axios.get(
         `${import.meta.env.VITE_SERVER_BASE_URL}/api/contests`,
-        { withCredentials: true }
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
       );
       
-      if (response.data.contests) {
-        setContests(response.data.contests);
-      } else if (Array.isArray(response.data)) {
-        setContests(response.data);
-      } else {
-        setContests([]);
+      console.log('Contests response:', response.data);
+
+      // Handle different response formats
+      let contestsData = [];
+      if (Array.isArray(response.data)) {
+        contestsData = response.data;
+      } else if (response.data.contests && Array.isArray(response.data.contests)) {
+        contestsData = response.data.contests;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        contestsData = response.data.data;
       }
-      setError('');
+
+      setContests(contestsData);
+      
     } catch (err) {
       console.error('Error fetching contests:', err);
-      setError('Failed to fetch contests');
+      
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/');
+        return;
+      }
+      
+      if (err.code === 'ECONNABORTED') {
+        setError('Request timeout. Please check your connection.');
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else {
+        setError('Failed to fetch contests. Please try again.');
+      }
+      
       setContests([]);
     } finally {
       setLoading(false);
@@ -47,16 +96,46 @@ function Contests() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
+      console.log('Fetching current user...');
+
       const response = await axios.get(
         `${import.meta.env.VITE_SERVER_BASE_URL}/api/profile`,
         { 
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
         }
       );
-      setCurrentUser(response.data);
+      
+      console.log('Current user response:', response.data);
+
+      // Normalize user data
+      let displayName = 'Anonymous';
+      if (response.data.name && response.data.name !== response.data.email) {
+        displayName = response.data.name;
+      } else if (response.data.username && response.data.username !== response.data.email) {
+        displayName = response.data.username;
+      } else if (response.data.email) {
+        displayName = response.data.email.split('@')[0];
+      }
+
+      const userData = {
+        ...response.data,
+        username: displayName,
+        name: displayName
+      };
+
+      setCurrentUser(userData);
     } catch (err) {
       console.error('Error fetching current user:', err);
+      
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/');
+        return;
+      }
     }
   };
 
@@ -135,8 +214,11 @@ function Contests() {
         `${import.meta.env.VITE_SERVER_BASE_URL}/api/contests/${contestId}/register`,
         {},
         { 
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
         }
       );
       
@@ -144,7 +226,7 @@ function Contests() {
       alert('Successfully registered for the contest!');
     } catch (err) {
       console.error('Error registering for contest:', err);
-      const errorMessage = err.response?.data?.error || 'Failed to register for contest';
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Failed to register for contest';
       alert(errorMessage);
     } finally {
       setRegistrationLoading(prev => ({ ...prev, [contestId]: false }));
@@ -162,8 +244,11 @@ function Contests() {
         `${import.meta.env.VITE_SERVER_BASE_URL}/api/contests/${contestId}/unregister`,
         {},
         { 
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
         }
       );
       
@@ -171,7 +256,7 @@ function Contests() {
       alert('Successfully unregistered from the contest!');
     } catch (err) {
       console.error('Error unregistering from contest:', err);
-      const errorMessage = err.response?.data?.error || 'Failed to unregister from contest';
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Failed to unregister from contest';
       alert(errorMessage);
     } finally {
       setRegistrationLoading(prev => ({ ...prev, [contestId]: false }));
@@ -179,6 +264,7 @@ function Contests() {
   };
 
   const handleLogout = () => {
+    console.log('Logging out...');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
@@ -227,7 +313,9 @@ function Contests() {
   return (
     <div className="contests-page">
       <header className="home-header">
-        <h1 className="site-title">Rush2Code</h1>
+        <Link to="/home" className="nav-link">
+          <h1 className="site-title">Rush2Code</h1>
+        </Link>
         <nav className="nav-links">
           <Link to="/contests" className="nav-link active">Contests</Link>
           <Link to="/leaderboard" className="nav-link">Leaderboard</Link>
@@ -237,7 +325,10 @@ function Contests() {
                 src={currentUser.avatar || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'}
                 alt="Profile"
                 className="profile-icon"
-                title={currentUser.username || currentUser.name}
+                title={currentUser.username}
+                onError={(e) => {
+                  e.target.src = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+                }}
               />
             </Link>
           )}
@@ -385,7 +476,7 @@ function Contests() {
 
                     {isRegistered && (
                       <div className="registration-indicator">
-                        You are registered for this contest
+                        ✅ You are registered for this contest
                       </div>
                     )}
                   </div>

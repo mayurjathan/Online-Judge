@@ -26,89 +26,152 @@ function Profile() {
     email: "",
     avatar: ""
   });
-  const [activeTab, setActiveTab] = useState("submissions"); // submissions, contests
+  const [activeTab, setActiveTab] = useState("submissions");
 
   useEffect(() => {
+    const initializeProfile = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          console.log("No token found, redirecting to login");
+          navigate("/");
+          return;
+        }
+
+        console.log("Token found, fetching profile data");
+        await fetchUserProfile();
+        await fetchRecentSubmissions();
+        await fetchContestHistory();
+      } catch (error) {
+        console.error("Error initializing profile:", error);
+        setError("Failed to load profile data");
+        setLoading(false);
+      }
+    };
+
+    initializeProfile();
+  }, [navigate]);
+
+  const fetchUserProfile = async () => {
+  try {
+    console.log("Fetching user profile...");
     const token = localStorage.getItem("token");
-    if (!token) {
+    
+    const res = await axios.get(
+      `${import.meta.env.VITE_SERVER_BASE_URL}/api/profile`,
+      {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+
+    console.log("Profile data received:", res.data);
+
+    // Fix the field mapping based on actual API response
+    const userData = {
+      username: res.data.name || res.data.username || "Anonymous", // Backend uses 'name'
+      email: res.data.email || "",
+      avatar: res.data.avatar || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+      joinedDate: res.data.createdAt || res.data.joinedDate || "", // Backend uses 'createdAt'
+      solvedProblems: res.data.solvedProblems?.length || res.data.solvedProblems || 0, // Handle if it's an array
+      totalSubmissions: res.data.totalSubmissions || 0,
+      rank: res.data.rank || 0,
+      contestsParticipated: res.data.contestsParticipated?.length || res.data.contestsParticipated || 0,
+      totalScore: res.data.totalScore || 0
+    };
+
+    setUser(userData);
+    setEditForm({
+      username: userData.username,
+      email: userData.email,
+      avatar: userData.avatar
+    });
+    setError("");
+    
+  } catch (err) {
+    console.error("Failed to fetch profile data:", err);
+    
+    if (err.response?.status === 401) {
+      console.log("Unauthorized, removing token and redirecting");
+      localStorage.removeItem("token");
       navigate("/");
       return;
     }
     
-    fetchUserProfile();
-    fetchRecentSubmissions();
-    fetchContestHistory();
-  }, [navigate]);
+    if (err.code === 'ECONNABORTED') {
+      setError("Request timeout. Please check your connection.");
+    } else if (err.response?.data?.error) {
+      setError(err.response.data.error);
+    } else {
+      setError("Failed to fetch profile data. Please try refreshing the page.");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const fetchUserProfile = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_BASE_URL}/api/profile`,
-        { 
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true 
-        }
-      );
-      
-      const userData = {
-        ...res.data,
-        username: res.data.username || res.data.name,
-        joinedDate: res.data.joinedDate || res.data.createdAt,
-        contestsParticipated: res.data.contestsParticipated || 0
-      };
-      
-      setUser(userData);
-      setEditForm({
-        username: userData.username,
-        email: userData.email,
-        avatar: userData.avatar || ""
-      });
-      setError("");
-    } catch (err) {
-      console.error("Failed to fetch profile data:", err);
-      if (err.response?.status === 401) {
-        localStorage.removeItem("token");
-        navigate("/");
-        return;
+ const fetchRecentSubmissions = async () => {
+  try {
+    console.log("Fetching recent submissions...");
+    const token = localStorage.getItem("token");
+    
+    const res = await axios.get(
+      `${import.meta.env.VITE_SERVER_BASE_URL}/api/submissions/recent`,
+      {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
       }
-      setError("Failed to fetch profile data");
-    } finally {
-      setLoading(false);
+    );
+    
+    console.log("Recent submissions received:", res.data);
+    
+    // Handle different response formats
+    let submissions = [];
+    if (Array.isArray(res.data)) {
+      submissions = res.data;
+    } else if (res.data.submissions && Array.isArray(res.data.submissions)) {
+      submissions = res.data.submissions;
+    } else if (res.data.data && Array.isArray(res.data.data)) {
+      submissions = res.data.data;
     }
-  };
-
-  const fetchRecentSubmissions = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_BASE_URL}/api/submissions/recent`,
-        { 
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true 
-        }
-      );
-      setRecentSubmissions(res.data.slice(0, 10)); // Show 10 recent submissions
-    } catch (err) {
-      console.error("Failed to fetch recent submissions:", err);
-      // Don't show error for submissions as it's not critical
-    }
-  };
+    
+    setRecentSubmissions(submissions.slice(0, 10));
+    
+  } catch (err) {
+    console.error("Failed to fetch recent submissions:", err);
+    // Don't set error for optional data, but log it
+    setRecentSubmissions([]); // Set empty array as fallback
+  }
+};
 
   const fetchContestHistory = async () => {
     try {
+      console.log("Fetching contest history...");
       const token = localStorage.getItem("token");
+      
       const res = await axios.get(
         `${import.meta.env.VITE_SERVER_BASE_URL}/api/contests/user/history`,
-        { 
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true 
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
         }
       );
+      
+      console.log("Contest history received:", res.data);
       setContestHistory(res.data.contests || []);
+      
     } catch (err) {
       console.error("Failed to fetch contest history:", err);
-      // Don't show error for contest history as it's not critical
+      // Don't set error for optional data
     }
   };
 
@@ -118,7 +181,7 @@ function Profile() {
       setEditForm({
         username: user.username,
         email: user.email,
-        avatar: user.avatar || ""
+        avatar: user.avatar
       });
     }
     setError("");
@@ -127,25 +190,33 @@ function Profile() {
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setError("");
-    
+
     try {
+      console.log("Saving profile changes...");
       const token = localStorage.getItem("token");
+      
       const res = await axios.put(
         `${import.meta.env.VITE_SERVER_BASE_URL}/api/profile`,
         editForm,
-        { 
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true 
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
         }
       );
+
+      console.log("Profile updated successfully");
       
-      setUser({ 
-        ...user, 
+      setUser({
+        ...user,
         username: editForm.username,
         email: editForm.email,
-        avatar: editForm.avatar || user.avatar
+        avatar: editForm.avatar
       });
       setIsEditing(false);
+      
     } catch (err) {
       console.error("Failed to update profile:", err);
       setError(err.response?.data?.error || "Failed to update profile");
@@ -153,7 +224,9 @@ function Profile() {
   };
 
   const handleLogout = () => {
+    console.log("Logging out...");
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     navigate("/");
   };
 
@@ -171,6 +244,7 @@ function Profile() {
 
   const formatDate = (dateString) => {
     try {
+      if (!dateString) return 'N/A';
       return new Date(dateString).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
@@ -183,6 +257,7 @@ function Profile() {
 
   const formatDateTime = (dateString) => {
     try {
+      if (!dateString) return 'N/A';
       return new Date(dateString).toLocaleString('en-US', {
         year: 'numeric',
         month: 'short',
@@ -199,6 +274,19 @@ function Profile() {
     if (user.totalSubmissions === 0) return 0;
     return Math.round((user.solvedProblems / user.totalSubmissions) * 100);
   };
+
+  // Error boundary fallback
+  if (error && loading) {
+    return (
+      <div className="profile-page">
+        <div className="error-container">
+          <h2>Something went wrong</h2>
+          <p>{error}</p>
+          <button onClick={() => window.location.reload()}>Refresh Page</button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -272,7 +360,7 @@ function Profile() {
                 ) : (
                   <>
                     <h2 className="profile-username">{user.username || 'Anonymous'}</h2>
-                    <p className="profile-email">{user.email}</p>
+                    <p className="profile-email">{user.email || 'No email'}</p>
                     <p className="profile-joined">
                       Joined: {formatDate(user.joinedDate)}
                     </p>

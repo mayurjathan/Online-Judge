@@ -2,14 +2,16 @@
 const express = require("express");
 const router = express.Router();
 const Problem = require("../models/Problem");
-const Comment = require("../models/Comment"); // ADD THIS MISSING IMPORT
-const Submission = require("../models/Submission"); // ADD THIS IF MISSING
+const Comment = require("../models/Comment");
+const Submission = require("../models/Submission");
 const verifyToken = require("../middleware/auth");
 
 // Get all problems - PUBLIC route (no auth required)
 router.get("/", async (req, res) => {
   try {
-    const problems = await Problem.find({}).select('-testCases -solution -hiddenTestCases');
+    console.log("Fetching all problems...");
+    const problems = await Problem.find({}).select('-hiddenTestCases');
+    console.log("Found problems:", problems.length);
     res.json(problems);
   } catch (error) {
     console.error("Error fetching problems:", error);
@@ -20,10 +22,22 @@ router.get("/", async (req, res) => {
 // Get a specific problem - PUBLIC route
 router.get("/:id", async (req, res) => {
   try {
-    const problem = await Problem.findById(req.params.id).select('-hiddenTestCases');
+    const { id } = req.params;
+    console.log("Fetching problem:", id);
+    
+    // Validate ObjectId
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid problem ID format" });
+    }
+
+    const problem = await Problem.findById(id).select('-hiddenTestCases');
     if (!problem) {
+      console.log("Problem not found:", id);
       return res.status(404).json({ error: "Problem not found" });
     }
+    
+    console.log("Problem found:", problem.title);
     res.json(problem);
   } catch (error) {
     console.error("Error fetching problem:", error);
@@ -53,13 +67,20 @@ router.post("/:id/test-cases", verifyToken, async (req, res) => {
       });
     }
 
-    // Verify user authentication (even though it's from compiler service)
+    // Verify user authentication
     if (!req.user || !req.user.id) {
       console.log("❌ No user authentication");
       return res.status(401).json({ 
         error: "Unauthorized", 
         message: "Valid user authentication required" 
       });
+    }
+
+    // Validate ObjectId
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log("❌ Invalid problem ID format:", id);
+      return res.status(400).json({ error: "Invalid problem ID format" });
     }
 
     const problem = await Problem.findById(id).lean();
@@ -101,7 +122,7 @@ router.post("/:id/test-cases", verifyToken, async (req, res) => {
   }
 });
 
-// FIXED: Get comments for a specific problem
+// Get comments for a specific problem
 router.get("/:id/comments", async (req, res) => {
   try {
     const { id } = req.params;
@@ -109,13 +130,19 @@ router.get("/:id/comments", async (req, res) => {
 
     console.log(`Fetching comments for problem ${id}, page ${page}, limit ${limit}`);
 
+    // Validate ObjectId
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid problem ID format" });
+    }
+
     // Verify problem exists
     const problem = await Problem.findById(id);
     if (!problem) {
       return res.status(404).json({ error: "Problem not found" });
     }
 
-    // Fixed: Convert page and limit to integers and handle pagination properly
+    // Convert page and limit to integers and handle pagination properly
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
@@ -142,7 +169,7 @@ router.get("/:id/comments", async (req, res) => {
   }
 });
 
-// FIXED: Add a comment to a problem
+// Add a comment to a problem
 router.post("/:id/comments", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -157,6 +184,12 @@ router.post("/:id/comments", verifyToken, async (req, res) => {
 
     if (content.length > 1000) {
       return res.status(400).json({ error: "Comment is too long (max 1000 characters)" });
+    }
+
+    // Validate ObjectId
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid problem ID format" });
     }
 
     // Verify problem exists
@@ -243,13 +276,34 @@ router.get("/:id/submissions", verifyToken, async (req, res) => {
 
     console.log("Fetching submissions for problem:", id, "user:", userId);
 
+    // Validate ObjectId
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid problem ID format" });
+    }
+
     const submissions = await Submission.find({
       userId,
       problemId: id
-    }).sort({ createdAt: -1 }).limit(20);
+    })
+    .populate('problemId', 'title')
+    .sort({ createdAt: -1 })
+    .limit(50);
 
     console.log("Found submissions:", submissions.length);
-    res.json(submissions);
+    
+    // Format submissions for frontend
+    const formattedSubmissions = submissions.map(sub => ({
+      _id: sub._id,
+      status: sub.status,
+      language: sub.language,
+      runtime: sub.runtime,
+      createdAt: sub.createdAt,
+      testCasesPassed: sub.testCasesPassed,
+      totalTestCases: sub.totalTestCases
+    }));
+
+    res.json(formattedSubmissions);
   } catch (error) {
     console.error("Error fetching problem submissions:", error);
     res.status(500).json({ error: "Failed to fetch submissions" });
@@ -260,6 +314,12 @@ router.get("/:id/submissions", verifyToken, async (req, res) => {
 router.get("/:id/stats", async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Validate ObjectId
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid problem ID format" });
+    }
 
     // Verify problem exists
     const problem = await Problem.findById(id);
@@ -344,7 +404,15 @@ router.get("/search/:query", async (req, res) => {
 // Get full problem with hidden test cases (admin only)
 router.get("/:id/admin", verifyToken, async (req, res) => {
   try {
-    const problem = await Problem.findById(req.params.id).lean();
+    const { id } = req.params;
+
+    // Validate ObjectId
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid problem ID format" });
+    }
+
+    const problem = await Problem.findById(id).lean();
     if (!problem) {
       return res.status(404).json({ error: "Problem not found" });
     }
@@ -419,6 +487,12 @@ router.put("/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
+    // Validate ObjectId
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid problem ID format" });
+    }
+
     // Validate difficulty if provided
     if (updates.difficulty && !['Easy', 'Medium', 'Hard'].includes(updates.difficulty)) {
       return res.status(400).json({ 
@@ -453,13 +527,20 @@ router.delete("/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Validate ObjectId
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid problem ID format" });
+    }
+
     const deletedProblem = await Problem.findByIdAndDelete(id);
     if (!deletedProblem) {
       return res.status(404).json({ error: "Problem not found" });
     }
 
-    // Also delete related comments
+    // Also delete related comments and submissions
     await Comment.deleteMany({ problemId: id });
+    await Submission.deleteMany({ problemId: id });
 
     res.json({ message: "Problem deleted successfully" });
   } catch (error) {

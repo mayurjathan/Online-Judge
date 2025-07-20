@@ -1,51 +1,89 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
+const fs = require("fs");
+
 const generateFile = require("../utils/generateFile");
 const { compileCpp, runCpp } = require("../execution/executeCpp");
 const { compileC, runC } = require("../execution/executeC");
 const { runPython } = require("../execution/executePython");
 const { runJavaDirect } = require("../execution/executeJava");
-const fs = require("fs");
-const path = require("path");
 
 // Rate limiting
 const submitRateLimit = new Map();
-const checkSubmitRateLimit = (ip) => {
+
+const checkRateLimit = (ip) => {
   const now = Date.now();
   const userSubmissions = submitRateLimit.get(ip) || [];
-  const recentSubmissions = userSubmissions.filter(time => now - time < 300000);
+  const recent = userSubmissions.filter(time => now - time < 300000);
   
-  if (recentSubmissions.length >= 5) {
-    throw new Error("Submission rate limit exceeded. Please try again later.");
+  if (recent.length >= 5) {
+    throw new Error("Rate limit exceeded. Try again later.");
   }
   
-  recentSubmissions.push(now);
-  submitRateLimit.set(ip, recentSubmissions);
+  recent.push(now);
+  submitRateLimit.set(ip, recent);
 };
 
-// Extract user ID from token
-const extractUserIdFromToken = (authHeader) => {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
+const fetchTestCases = async (problemId, authHeader) => {
+  const response = await axios.post(
+    `${process.env.SERVER_BASE_URL || 'http://localhost:5050'}/api/problems/${problemId}/test-cases`,
+    {},
+    {
+      headers: {
+        'Authorization': authHeader || '',
+        'Content-Type': 'application/json',
+        'X-Service': 'compiler'
+      },
+      timeout: 5000
+    }
+  );
+  return response.data.testCases;
+};
+
+const saveSubmission = async (submissionData, authHeader) => {
+  console.log("💾 Attempting to save submission:", {
+    userId: submissionData.userId,
+    problemId: submissionData.problemId,
+    status: submissionData.status,
+    language: submissionData.language
+  });
   
-  try {
-    const token = authHeader.split(' ')[1];
-    const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return decoded.id;
-  } catch (error) {
-    console.error('Token verification failed:', error);
-    return null;
+  const response = await axios.post(
+    `${process.env.SERVER_BASE_URL || 'http://localhost:5050'}/api/submissions`,
+    submissionData,
+    {
+      headers: {
+        'Authorization': authHeader || '',
+        'Content-Type': 'application/json'
+      },
+      timeout: 10000
+    }
+  );
+  
+  console.log("✅ Submission saved successfully:", response.data);
+  return response.data;
+};
+
+const runTestCase = async (language, filepath, executablePath, input, timeLimit = 2000) => {
+  switch (language) {
+    case "cpp":
+      return await runCpp(executablePath, input, timeLimit);
+    case "c":
+      return await runC(executablePath, input, timeLimit);
+    case "python":
+      return await runPython(filepath, input, timeLimit);
+    case "java":
+      return await runJavaDirect(filepath, input, timeLimit);
+    default:
+      throw new Error("Unsupported language");
   }
 };
 
 router.post("/submit", async (req, res) => {
-  const { code, language = "cpp", problemId } = req.body;
+  const { code, language = "cpp", problemId, userId } = req.body; // Get userId from request body
   const clientIP = req.ip || req.connection.remoteAddress;
   const authHeader = req.headers.authorization;
-  const userId = extractUserIdFromToken(authHeader);
 
   if (!code || !problemId) {
     return res.status(400).json({ error: "Missing code or problem ID" });
@@ -55,254 +93,140 @@ router.post("/submit", async (req, res) => {
     return res.status(400).json({ error: "Code size too large (max 100KB)" });
   }
 
+  let filepath = null;
+  let executablePath = null;
+
   try {
-    checkSubmitRateLimit(clientIP);
+    checkRateLimit(clientIP);
 
-    // Get test cases from server
-    let testCases;
-    try {
-      const response = await axios.post(
-        `${process.env.SERVER_BASE_URL || 'http://localhost:5050'}/api/problems/${problemId}/test-cases`,
-        {}, 
-        {
-          headers: {
-            'Authorization': authHeader || '',
-            'Content-Type': 'application/json',
-            'X-Service': 'compiler'
-          },
-          timeout: 5000
-        }
-      );
-      testCases = response.data.testCases;
-    } catch (serverError) {
-      console.error("Failed to fetch test cases:", serverError.message);
-      return res.status(404).json({ 
-        error: "Test cases not available", 
-        message: "Unable to fetch test cases for evaluation"
-      });
+    // Get test cases
+    const testCases = await fetchTestCases(problemId, authHeader);
+    if (!testCases?.length) {
+      return res.status(404).json({ error: "No test cases found" });
     }
 
-    if (!testCases || testCases.length === 0) {
-      return res.status(404).json({ 
-        error: "No test cases found",
-        message: "This problem doesn't have test cases configured"
-      });
-    }
-
-    const filepath = await generateFile(language, code);
-    let passedCount = 0;
-    let totalCount = testCases.length;
-    let executablePath = "";
-    let totalExecutionTime = 0;
-    let overallStatus = "Accepted";
-
-    // Compile once for C/C++
-    try {
-      if (language === "cpp") executablePath = compileCpp(filepath);
-      else if (language === "c") executablePath = compileC(filepath);
-    } catch (compileError) {
-      overallStatus = "Compilation Error";
-      
-      // Save compilation error to server
-      if (userId) {
-        try {
-          await axios.post(
-            `${process.env.SERVER_BASE_URL || 'http://localhost:5050'}/api/submissions`,
-            {
-              userId,
-              problemId,
-              code,
-              language,
-              status: overallStatus,
-              runtime: "0ms",
-              testCasesPassed: 0,
-              totalTestCases: totalCount
-            },
-            {
-              headers: {
-                'Authorization': authHeader || '',
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-        } catch (saveError) {
-          console.log("failed");
-          console.error("Failed to save compilation error:", saveError.message);
-        }
-      }
-
-      // Cleanup
-      try {
-        if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
-      } catch (cleanupError) {
-        console.error("Cleanup error:", cleanupError);
-      }
-
-      return res.status(400).json({
-        error: "Compilation Error",
-        message: compileError.message,
-        passedAll: false,
-        overallStatus,
-        totalExecutionTime: "0ms",
-        testCasesPassed: 0,
-        totalTestCases: totalCount
-      });
+    // Generate and compile code
+    filepath = await generateFile(language, code);
+    
+    if (language === "cpp") {
+      executablePath = compileCpp(filepath);
+    } else if (language === "c") {
+      executablePath = compileC(filepath);
     }
 
     // Run test cases
-    for (let i = 0; i < testCases.length; i++) {
-      const test = testCases[i];
-      const testStartTime = Date.now();
+    let passedCount = 0;
+    let totalExecutionTime = 0;
+    let overallStatus = "Accepted";
+
+    for (const test of testCases) {
+      const startTime = Date.now();
       
       try {
-        let output = "";
-        const timeLimit = 2000;
+        const output = await runTestCase(language, filepath, executablePath, test.input);
+        totalExecutionTime += Date.now() - startTime;
 
-        switch (language) {
-          case "cpp":
-            output = await runCpp(executablePath, test.input, timeLimit);
-            break;
-          case "c":
-            output = await runC(executablePath, test.input, timeLimit);
-            break;
-          case "python":
-            output = await runPython(filepath, test.input, timeLimit);
-            break;
-          case "java":
-            output = await runJavaDirect(filepath, test.input, timeLimit);
-            break;
-          default:
-            throw new Error("Unsupported language");
-        }
-
-        const testExecutionTime = Date.now() - testStartTime;
-        totalExecutionTime += testExecutionTime;
-
-        const actual = output.trim();
-        const expected = test.output.trim();
-        const passed = actual === expected;
-
-        if (passed) {
+        if (output.trim() === test.output.trim()) {
           passedCount++;
         } else if (overallStatus === "Accepted") {
           overallStatus = "Wrong Answer";
         }
-
       } catch (err) {
-        const testExecutionTime = Date.now() - testStartTime;
-        totalExecutionTime += testExecutionTime;
-
-        if (err.message.includes("Time Limit Exceeded") && overallStatus === "Accepted") {
+        totalExecutionTime += Date.now() - startTime;
+        
+        if (err.message.includes("Time Limit Exceeded")) {
           overallStatus = "Time Limit Exceeded";
-        } else if (err.message.includes("Memory Limit Exceeded") && overallStatus === "Accepted") {
+        } else if (err.message.includes("Memory Limit Exceeded")) {
           overallStatus = "Memory Limit Exceeded";
         } else if (overallStatus === "Accepted") {
           overallStatus = "Runtime Error";
         }
-
-        // Stop on critical errors
-        if (err.message.includes("Time Limit Exceeded") && i > 0) {
-          console.log(`Stopping execution after ${i + 1} test cases due to TLE`);
-          totalCount = i + 1; // Update total count to actual tests run
-          break;
-        }
       }
     }
 
-    // Cleanup files
-    try {
-      if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
-      if (executablePath && fs.existsSync(executablePath)) fs.unlinkSync(executablePath);
-    } catch (cleanupError) {
-      console.error("File cleanup error:", cleanupError);
-    }
-
-    const passedAll = passedCount === totalCount;
-    if (!passedAll && overallStatus === "Accepted") {
-      overallStatus = "Wrong Answer";
-    }
-
-    // Save submission to server
+    const passedAll = passedCount === testCases.length;
+    
+    // Save submission
     if (userId) {
+      console.log("🔍 User ID found, attempting to save submission...");
       try {
-        await axios.post(
-          `${process.env.SERVER_BASE_URL || 'http://localhost:5050'}/api/submissions`,
-          {
-            userId,
-            problemId,
-            code,
-            language,
-            status: overallStatus,
-            runtime: `${totalExecutionTime}ms`,
-            testCasesPassed: passedCount,
-            totalTestCases: totalCount
-          },
-          {
-            headers: {
-              'Authorization': authHeader || '',
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        console.log(`Submission saved: ${overallStatus} - ${passedCount}/${totalCount} tests passed`);
-      } catch (serverError) {
-        console.error("Failed to save submission:", serverError.response?.data || serverError.message);
-        // Continue even if saving fails
+        await saveSubmission({
+          userId,
+          problemId,
+          code,
+          language,
+          status: overallStatus,
+          runtime: `${totalExecutionTime}ms`,
+          testCasesPassed: passedCount,
+          totalTestCases: testCases.length
+        }, authHeader);
+      } catch (saveError) {
+        console.error("❌ Failed to save submission:", saveError.response?.data || saveError.message);
       }
+    } else {
+      console.log("⚠️ No user ID found, skipping submission save");
     }
 
-    // SECURE RESPONSE: Only return summary, no test case details
-    res.json({ 
+    return res.json({
       passedAll,
       overallStatus,
       totalExecutionTime: `${totalExecutionTime}ms`,
       testCasesPassed: passedCount,
-      totalTestCases: totalCount,
-      language,
-      problemId,
+      totalTestCases: testCases.length,
       message: passedAll ? 
         "🎉 All test cases passed!" : 
-        `❌ ${passedCount}/${totalCount} test cases passed`
+        `❌ ${passedCount}/${testCases.length} test cases passed`
     });
 
   } catch (err) {
     console.error("Submission error:", err);
     
-    // Cleanup on error
-    try {
-      const codesDir = path.join(__dirname, "../utils/codes");
-      const outputsDir = path.join(__dirname, "../utils/outputs");
-      
-      [codesDir, outputsDir].forEach(dir => {
-        if (fs.existsSync(dir)) {
-          const files = fs.readdirSync(dir);
-          const now = Date.now();
-          files.forEach(file => {
-            const filePath = path.join(dir, file);
-            try {
-              const stats = fs.statSync(filePath);
-              if (now - stats.mtime.getTime() > 1800000) {
-                fs.unlinkSync(filePath);
-              }
-            } catch (e) {
-              // File might have been deleted already
-            }
-          });
+    // Handle specific errors
+    if (err.message.includes("Compilation Error")) {
+      if (userId) {
+        console.log("🔍 Compilation error - attempting to save submission...");
+        try {
+          await saveSubmission({
+            userId,
+            problemId,
+            code,
+            language,
+            status: "Compilation Error",
+            runtime: "0ms",
+            testCasesPassed: 0,
+            totalTestCases: 0
+          }, authHeader);
+        } catch (saveError) {
+          console.error("❌ Failed to save compilation error:", saveError.response?.data || saveError.message);
         }
+      }
+      
+      return res.status(400).json({
+        error: "Compilation Error",
+        message: err.message,
+        passedAll: false
       });
-    } catch (cleanupError) {
-      console.error("Cleanup error:", cleanupError);
     }
 
     if (err.message.includes("rate limit")) {
       return res.status(429).json({ error: err.message });
     }
 
-    res.status(500).json({ 
-      error: "Submission failed", 
-      message: "Internal server error",
+    if (err.response?.status === 404) {
+      return res.status(404).json({ error: "Test cases not available" });
+    }
+
+    return res.status(500).json({ 
+      error: "Submission failed",
       passedAll: false
     });
+
+  } finally {
+    // Cleanup
+    try {
+      if (filepath && fs.existsSync(filepath)) fs.unlinkSync(filepath);
+      if (executablePath && fs.existsSync(executablePath)) fs.unlinkSync(executablePath);
+    } catch {}
   }
 });
 
