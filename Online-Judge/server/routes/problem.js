@@ -46,7 +46,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // SECURE ENDPOINT: Get test cases for compiler service only
-router.post("/:id/test-cases", verifyToken, async (req, res) => {
+router.post("/:id/test-cases", async (req, res) => {
   try {
     const { id } = req.params;
     const serviceHeader = req.headers['x-service'];
