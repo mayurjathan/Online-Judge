@@ -357,3 +357,142 @@
     gap: 10px;
   }
 }
+/* Add these styles to your existing Profile.css file */
+
+/* Study Plan Status Card */
+.study-plan-status {
+  background: linear-gradient(135deg, rgba(87, 108, 188, 0.1), rgba(132, 93, 239, 0.1));
+  border: 2px solid rgba(87, 108, 188, 0.2);
+  border-radius: 15px;
+  padding: 20px;
+  margin: 20px 0;
+  backdrop-filter: blur(10px);
+}
+
+.study-plan-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1f2145;
+  margin: 0 0 15px 0;
+  text-align: center;
+}
+
+.study-plan-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.study-plan-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  border: 1px solid rgba(87, 108, 188, 0.1);
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #57618c;
+  font-size: 0.9rem;
+}
+
+.detail-value {
+  font-weight: 700;
+  color: #1f2145;
+  font-size: 0.95rem;
+}
+
+.study-plan-progress {
+  margin: 15px 0;
+}
+
+.progress-bar-profile {
+  width: 100%;
+  height: 10px;
+  background: rgba(87, 108, 188, 0.1);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.progress-fill-profile {
+  height: 100%;
+  background: linear-gradient(45deg, #36c189, #576cbc);
+  border-radius: 5px;
+  transition: width 0.5s ease;
+  position: relative;
+}
+
+.progress-fill-profile::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.study-plan-link {
+  display: inline-block;
+  background: linear-gradient(45deg, #576cbc, #845def);
+  color: white;
+  text-decoration: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+}
+
+.study-plan-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(87, 108, 188, 0.3);
+  text-decoration: none;
+  color: white;
+}
+
+/* Responsive Design for Study Plan */
+@media (max-width: 768px) {
+  .study-plan-info {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .study-plan-detail {
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+  
+  .study-plan-status {
+    padding: 15px;
+    margin: 15px 0;
+  }
+  
+  .study-plan-title {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .study-plan-status {
+    padding: 12px;
+  }
+  
+  .study-plan-link {
+    width: 100%;
+    text-align: center;
+  }
+}

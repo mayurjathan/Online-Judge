@@ -14,7 +14,8 @@ function Profile() {
     totalSubmissions: 0,
     rank: 0,
     contestsParticipated: 0,
-    totalScore: 0
+    totalScore: 0,
+    studyPlan: null // Add study plan to user state
   });
   const [recentSubmissions, setRecentSubmissions] = useState([]);
   const [contestHistory, setContestHistory] = useState([]);
@@ -72,15 +73,16 @@ function Profile() {
 
     // Fix the field mapping based on actual API response
     const userData = {
-      username: res.data.name || res.data.username || "Anonymous", // Backend uses 'name'
+      username: res.data.name || res.data.username || "Anonymous",
       email: res.data.email || "",
       avatar: res.data.avatar || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
-      joinedDate: res.data.createdAt || res.data.joinedDate || "", // Backend uses 'createdAt'
-      solvedProblems: res.data.solvedProblems?.length || res.data.solvedProblems || 0, // Handle if it's an array
+      joinedDate: res.data.createdAt || res.data.joinedDate || "",
+      solvedProblems: res.data.solvedProblems?.length || res.data.solvedProblems || 0,
       totalSubmissions: res.data.totalSubmissions || 0,
       rank: res.data.rank || 0,
       contestsParticipated: res.data.contestsParticipated?.length || res.data.contestsParticipated || 0,
-      totalScore: res.data.totalScore || 0
+      totalScore: res.data.totalScore || 0,
+      studyPlan: res.data.studyPlan || null // Add study plan data
     };
 
     setUser(userData);
@@ -145,8 +147,7 @@ function Profile() {
     
   } catch (err) {
     console.error("Failed to fetch recent submissions:", err);
-    // Don't set error for optional data, but log it
-    setRecentSubmissions([]); // Set empty array as fallback
+    setRecentSubmissions([]);
   }
 };
 
@@ -171,7 +172,6 @@ function Profile() {
       
     } catch (err) {
       console.error("Failed to fetch contest history:", err);
-      // Don't set error for optional data
     }
   };
 
@@ -275,6 +275,30 @@ function Profile() {
     return Math.round((user.solvedProblems / user.totalSubmissions) * 100);
   };
 
+  // Study Plan Helper Functions
+  const getStudyPlanStatus = () => {
+    if (!user.studyPlan || !user.studyPlan.isActive) {
+      return "No active study plan";
+    }
+    
+    const { currentDay, targetDays } = user.studyPlan;
+    if (currentDay >= targetDays) {
+      return "Study plan completed! 🎉";
+    }
+    
+    return `Day ${currentDay} of ${targetDays}`;
+  };
+
+  const getStudyPlanProgress = () => {
+    if (!user.studyPlan || !user.studyPlan.isActive) return 0;
+    return Math.round((user.studyPlan.currentDay / user.studyPlan.targetDays) * 100);
+  };
+
+  const getDaysRemaining = () => {
+    if (!user.studyPlan || !user.studyPlan.isActive) return 0;
+    return Math.max(0, user.studyPlan.targetDays - user.studyPlan.currentDay + 1);
+  };
+
   // Error boundary fallback
   if (error && loading) {
     return (
@@ -376,6 +400,42 @@ function Profile() {
               <div className="error-message">
                 <p className="error-msg">{error}</p>
                 <button onClick={() => setError("")} className="close-error">×</button>
+              </div>
+            )}
+
+            {/* Study Plan Status Card */}
+            {user.studyPlan && user.studyPlan.isActive && (
+              <div className="study-plan-status">
+                <h3 className="study-plan-title">📅 Current Study Plan</h3>
+                <div className="study-plan-info">
+                  <div className="study-plan-detail">
+                    <span className="detail-label">Status:</span>
+                    <span className="detail-value">{getStudyPlanStatus()}</span>
+                  </div>
+                  <div className="study-plan-detail">
+                    <span className="detail-label">Progress:</span>
+                    <span className="detail-value">{getStudyPlanProgress()}%</span>
+                  </div>
+                  <div className="study-plan-detail">
+                    <span className="detail-label">Problems per day:</span>
+                    <span className="detail-value">{user.studyPlan.problemsPerDay}</span>
+                  </div>
+                  <div className="study-plan-detail">
+                    <span className="detail-label">Days remaining:</span>
+                    <span className="detail-value">{getDaysRemaining()}</span>
+                  </div>
+                </div>
+                <div className="study-plan-progress">
+                  <div className="progress-bar-profile">
+                    <div 
+                      className="progress-fill-profile" 
+                      style={{ width: `${getStudyPlanProgress()}%` }}
+                    ></div>
+                  </div>
+                </div>
+                <Link to="/home" className="study-plan-link">
+                  Go to Study Plan →
+                </Link>
               </div>
             )}
 
