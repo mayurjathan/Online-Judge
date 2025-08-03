@@ -77,8 +77,8 @@ function RegisterPage() {
 
       if (res.data.message || res.status === 201) {
         // Registration successful
-        alert("Registration successful! Please login with your credentials.");
-        navigate("/");
+        alert("Registration successful!");
+        navigate("/home");
       } else {
         setError("Registration failed. Please try again.");
       }
